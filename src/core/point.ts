@@ -183,6 +183,10 @@ module MakerJs.point {
             midPoint = point.add(circle.origin, [-circle.radius, 0]);
         };
 
+        map[pathType.Bezier] = function (bezier: IPathBezier) {
+            //TODO-BEZIER
+        };
+
         map[pathType.Line] = function (line: IPathLine) {
 
             function ration(a: number, b: number): number {

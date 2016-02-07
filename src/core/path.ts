@@ -27,6 +27,11 @@ module MakerJs.path {
         return pathAreEqualMap[pathType.Circle](arc1, arc2, withinPointDistance) && angle.areEqual(arc1.startAngle, arc2.startAngle) && angle.areEqual(arc1.endAngle, arc2.endAngle);
     };
 
+    pathAreEqualMap[pathType.Bezier] = function (bezier1: IPathBezier, bezier2: IPathBezier, withinPointDistance): boolean {
+        //TODO-BEZIER
+        return null;
+    };
+
     /**
      * Find out if two paths are equal.
      * 
@@ -95,6 +100,10 @@ module MakerJs.path {
                 );
             };
 
+            map[pathType.Bezier] = function (bezier: IPathBezier) {
+                //TODO-BEZIER
+            };
+
             var fn = map[pathToMirror.type];
             if (fn) {
                 fn(pathToMirror);
@@ -121,6 +130,10 @@ module MakerJs.path {
                 line.end = point.add(origin, delta);
             };
 
+            map[pathType.Bezier] = function (bezier: IPathBezier) {
+                //TODO-BEZIER
+            };
+            
             var fn = map[pathToMove.type];
             if (fn) {
                 fn(pathToMove);
@@ -146,6 +159,10 @@ module MakerJs.path {
 
             map[pathType.Line] = function (line: IPathLine) {
                 line.end = point.add(line.end, delta);
+            };
+
+            map[pathType.Bezier] = function (bezier: IPathBezier) {
+                //TODO-BEZIER
             };
 
             pathToMove.origin = point.add(pathToMove.origin, delta);
@@ -181,6 +198,10 @@ module MakerJs.path {
             arc.endAngle = angle.noRevolutions(arc.endAngle + angleInDegrees);
         }
 
+        map[pathType.Bezier] = function (bezier: IPathBezier) {
+            //TODO-BEZIER
+        };
+
         pathToRotate.origin = point.rotate(pathToRotate.origin, angleInDegrees, rotationOrigin);
 
         var fn = map[pathToRotate.type];
@@ -210,6 +231,10 @@ module MakerJs.path {
         map[pathType.Circle] = function (circle: IPathCircle) {
             circle.radius *= scaleValue;
         }
+
+        map[pathType.Bezier] = function (bezier: IPathBezier) {
+            //TODO-BEZIER
+        };
 
         map[pathType.Arc] = map[pathType.Circle];
 

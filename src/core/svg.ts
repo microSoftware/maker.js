@@ -210,6 +210,10 @@ module MakerJs.exporter {
             }
         };
 
+        map[pathType.Bezier] = function (id: string, bezier: IPathBezier, origin: IPoint, layer: string) {
+            //TODO-BEZIER
+        };
+
         //fixup options
 
         //measure the item to move it into svg area

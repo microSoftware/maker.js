@@ -15,6 +15,7 @@ module MakerJs.path {
     var map: IPathIntersectionMap = {};
 
     map[pathType.Arc] = {};
+    map[pathType.Bezier] = {};
     map[pathType.Circle] = {};
     map[pathType.Line] = {};
 
@@ -39,6 +40,11 @@ module MakerJs.path {
                 checkAngleOverlap(arc1, arc2, options);
             }
         }
+        return null;
+    };
+
+    map[pathType.Arc][pathType.Bezier] = function (arc: IPathArc, bezier: IPathBezier, options: IPathIntersectionOptions) {
+        //TODO-BEZIER
         return null;
     };
 
@@ -90,6 +96,11 @@ module MakerJs.path {
         return null;
     };
 
+    map[pathType.Circle][pathType.Bezier] = function (circle: IPathCircle, bezier: IPathBezier, options: IPathIntersectionOptions) {
+        //TODO-BEZIER
+        return null;
+    };
+
     map[pathType.Circle][pathType.Circle] = function (circle1: IPathCircle, circle2: IPathCircle, options: IPathIntersectionOptions) {
         var angles = circleToCircle(circle1, circle2, options);
         if (angles) {
@@ -118,6 +129,11 @@ module MakerJs.path {
         if (result) {
             return swap(result);
         }
+        return null;
+    };
+
+    map[pathType.Line][pathType.Bezier] = function (line: IPathLine, bezier: IPathBezier, options: IPathIntersectionOptions) {
+        //TODO-BEZIER
         return null;
     };
 

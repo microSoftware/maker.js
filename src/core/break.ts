@@ -78,6 +78,12 @@ module MakerJs.path {
         return new paths.Line(pointOfBreak, savedEndPoint);
     };
 
+    breakPathFunctionMap[pathType.Bezier] = function (bezier: IPathBezier, pointOfBreak: IPoint): IPath {
+        
+        //TODO-BEZIER
+        return null;
+    };
+
     /**
      * Breaks a path in two. The supplied path will end at the supplied pointOfBreak, 
      * a new path is returned which begins at the pointOfBreak and ends at the supplied path's initial end point.

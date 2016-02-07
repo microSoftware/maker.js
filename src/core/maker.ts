@@ -194,6 +194,32 @@ module MakerJs {
     }
 
     /**
+     * A Bezier curve path.
+     * 
+     * Examples:
+     * ```
+     * var bezier: IPathBezier = { type: 'bezier', origin: [0, 0], end: [1, 1], controls: [[1, 0]] };   //typescript
+     * var bezier = { type: 'bezier', origin: [0, 0], end: [1, 1], controls: [[1, 0]] };   //javascript
+     * ```
+     */
+    export interface IPathBezier extends IPathLine {
+        
+        /**
+         * The control points array defining the curve. The array length should be 1 for quadratic or 2 for cubic curves.
+         */
+        controls: IPoint[];
+    }
+
+    /**
+     * Test to see if an object implements the required properties of a bezier curve.
+     * 
+     * @param item The item to test.
+     */
+    export function isPathBezier(item: any): boolean {
+        return isPath(item) && item.type == pathType.Bezier && item.end && item.controls && Array.isArray(item.controls);
+    }
+
+    /**
      * A circle path.
      * 
      * Examples:
@@ -286,6 +312,7 @@ module MakerJs {
     export var pathType = {
         Line: "line",
         Circle: "circle",
+        Bezier: "bezier",
         Arc: "arc"
     };
 

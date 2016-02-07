@@ -49,6 +49,8 @@ module MakerJs.path {
             map[pathType.Line] = function (line: IPathLine) {
                 propertyNames = ['origin', 'end'];
             }
+            
+             map[pathType.Bezier] =  map[pathType.Line];
 
             var fn = map[pathToInspect.type];
             if (fn) {
@@ -159,6 +161,11 @@ module MakerJs.path {
             result = new paths.Parallel(line, filletRadius, nearPoint);
         }
 
+        map[pathType.Bezier] = function (bezier: IPathBezier) {
+            //TODO-BEZIER
+            result = null;
+        }
+
         var fn = map[context.path.type];
         if (fn) {
             fn(context.path);
@@ -212,6 +219,10 @@ module MakerJs.path {
                     }
                 };
             }
+        };
+
+        map[pathType.Bezier] = function (bezier: IPathBezier) {
+            //TODO-BEZIER
         }
 
         var fn = map[context.path.type];

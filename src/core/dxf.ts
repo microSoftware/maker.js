@@ -87,6 +87,10 @@ module MakerJs.exporter {
             append(arc.endAngle);
         };
 
+        map[pathType.Bezier] = function (id: string, bezier: IPathBezier, origin: IPoint, layer: string) {
+            //TODO-BEZIER
+        };
+
         function section(sectionFn: () => void) {
             append("0");
             append("SECTION");

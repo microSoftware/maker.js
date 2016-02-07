@@ -84,6 +84,10 @@ module MakerJs.exporter {
             head = wrap('new CSG.Path2D.arc', JSON.stringify(arcOptions), true);
         };
 
+        beginMap[pathType.Bezier] = function (bezier: IPathBezier, dirPath: IPathDirectional) {
+            //TODO-BEZIER
+        };
+
         var appendMap: IPathDirectionalFunctionMap = {};
 
         appendMap[pathType.Line] = function (line: IPathLine, dirPath: IPathDirectional) {
@@ -103,6 +107,10 @@ module MakerJs.exporter {
             };
             var endPoint = point.rounded(dirPath.endPoints[reverse ? 0 : 1]);
             append(wrap('.appendArc', JSON.stringify(endPoint) + ',' + JSON.stringify(arcOptions), true));
+        };
+
+        appendMap[pathType.Bezier] = function (bezier: IPathBezier, dirPath: IPathDirectional) {
+            //TODO-BEZIER
         }
 
         function append(s: string) {

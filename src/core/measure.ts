@@ -171,6 +171,10 @@ module MakerJs.measure {
             measurement.high = extremeAngle([360, 90], r, Math.max);
         }
 
+        map[pathType.Bezier] = function (bezier: IPathBezier) {
+            //TODO-BEZIER
+        }
+
         if (pathToMeasure) {
             var fn = map[pathToMeasure.type];
             if (fn) {
@@ -203,6 +207,10 @@ module MakerJs.measure {
             map[pathType.Circle](arc); //this sets the value var
             var pct = arcAngle(arc) / 360;
             value *= pct;
+        }
+
+        map[pathType.Bezier] = function (bezier: IPathBezier) {
+            //TODO-BEZIER
         } 
 
         var fn = map[pathToMeasure.type];
