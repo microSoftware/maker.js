@@ -47,6 +47,21 @@ module MakerJs.paths {
     }
 
     /**
+     * Class for bezier path.
+     * 
+     * @param origin The origin point of the curve.
+     * @param end The end point of the curve.
+     * @param controls Array of control points of the curve, one element for quadratic, two elements for cubic (first element corresponds to origin, second to end).
+     */
+    export class Bezier implements IPathBezier {
+        public type: string;
+
+        constructor(public origin: IPoint, public end: IPoint, public controls: IPoint[]) {
+            this.type = pathType.Bezier;
+        }
+    }
+
+    /**
      * Class for chord, which is simply a line path that connects the endpoints of an arc.
      * 
      * @param arc Arc to use as the basic for the chord.
