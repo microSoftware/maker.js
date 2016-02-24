@@ -158,6 +158,35 @@ module MakerJs.path {
         return null;
     };
 
+    map[pathType.Bezier][pathType.Arc] = function (bezier: IPathBezier, arc: IPathArc, options: IPathIntersectionOptions) {
+        var result = map[pathType.Arc][pathType.Bezier](arc, bezier, options);
+        if (result) {
+            return swap(result);
+        }
+        return null;
+    };
+
+    map[pathType.Bezier][pathType.Bezier] = function (bezier1: IPathBezier, bezier2: IPathBezier, options: IPathIntersectionOptions) {
+        //TODO-BEZIER
+        return null;
+    };
+
+    map[pathType.Bezier][pathType.Circle] = function (bezier: IPathBezier, circle: IPathCircle, options: IPathIntersectionOptions) {
+        var result = map[pathType.Circle][pathType.Bezier](circle, bezier, options);
+        if (result) {
+            return swap(result);
+        }
+        return null;
+    };
+
+    map[pathType.Bezier][pathType.Line] = function (bezier: IPathBezier, line: IPathLine, options: IPathIntersectionOptions) {
+        var result = map[pathType.Line][pathType.Bezier](line, bezier, options);
+        if (result) {
+            return swap(result);
+        }
+        return null;
+    };
+
     /**
      * @private
      */
