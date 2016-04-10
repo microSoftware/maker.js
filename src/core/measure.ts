@@ -1,4 +1,4 @@
-module MakerJs.measure {
+namespace MakerJs.measure {
 
     /**
      * Interface to Math.min and Math.max functions.
@@ -7,17 +7,6 @@ module MakerJs.measure {
      */
     interface IMathMinMax {
         (...values: number[]): number;
-    }
-
-    /**
-     * Total angle of an arc between its start and end angles.
-     * 
-     * @param arc The arc to measure.
-     * @returns Angle of arc.
-     */
-    export function arcAngle(arc: IPathArc): number {
-        var endAngle = angle.ofArcEnd(arc);
-        return endAngle - arc.startAngle;
     }
 
     /**
@@ -43,6 +32,30 @@ module MakerJs.measure {
 
         return false;
     }
+
+    /**
+     * Check for arc overlapping another arc.
+     * 
+     * @param arc1 The arc to test.
+     * @param arc2 The arc to check for overlap.
+     * @param excludeTangents Boolean to exclude exact endpoints and only look for deep overlaps.
+     * @returns Boolean true if arc1 is overlapped with arc2.
+     */
+    export function isArcOverlapping(arc1: IPathArc, arc2: IPathArc, excludeTangents: boolean): boolean {
+        var pointsOfIntersection: IPoint[] = [];
+
+        function checkAngles(a: IPathArc, b: IPathArc) {
+
+            function checkAngle(n: number) {
+                return measure.isBetweenArcAngles(n, a, excludeTangents);
+            }
+
+            return checkAngle(b.startAngle) || checkAngle(b.endAngle);
+        }
+
+        return checkAngles(arc1, arc2) || checkAngles(arc2, arc1) || (arc1.startAngle == arc2.startAngle && arc1.endAngle == arc2.endAngle);
+    }
+
 
     /**
      * Check if a given number is between two given limits.
@@ -71,13 +84,9 @@ module MakerJs.measure {
      */
     export function isBetweenArcAngles(angleInQuestion: number, arc: IPathArc, exclusive: boolean): boolean {
 
-        var startAngle = arc.startAngle;
-        var endAngle = angle.ofArcEnd(arc);
-
-        var span = endAngle - startAngle;
-
-        startAngle = angle.noRevolutions(startAngle);
-        endAngle = startAngle + span;
+        var startAngle = angle.noRevolutions(arc.startAngle);
+        var span = angle.ofArcSpan(arc);
+        var endAngle = startAngle + span;
 
         angleInQuestion = angle.noRevolutions(angleInQuestion);
 
@@ -103,6 +112,54 @@ module MakerJs.measure {
             if (!isBetween(round(pointInQuestion[i]), origin_value, end_value, exclusive)) return false;
         }
         return true;
+    }
+
+    /**
+     * Check for line overlapping another line.
+     * 
+     * @param line1 The line to test.
+     * @param line2 The line to check for overlap.
+     * @param excludeTangents Boolean to exclude exact endpoints and only look for deep overlaps.
+     * @returns Boolean true if line1 is overlapped with line2.
+     */
+    export function isLineOverlapping(line1: IPathLine, line2: IPathLine, excludeTangents: boolean): boolean {
+        var pointsOfIntersection: IPoint[] = [];
+
+        function checkPoints(index: number, a: IPathLine, b: IPathLine) {
+
+            function checkPoint(p: IPoint) {
+                return measure.isBetweenPoints(p, a, excludeTangents);
+            }
+
+            return checkPoint(b.origin) || checkPoint(b.end);
+        }
+
+        return checkPoints(0, line1, line2) || checkPoints(1, line2, line1);
+    }
+
+    /**
+     * Gets the slope of a line.
+     */
+    export function lineSlope(line: IPathLine): ISlope {
+        var dx = line.end[0] - line.origin[0];
+        if (round(dx) == 0) {
+            return {
+                line: line,
+                hasSlope: false
+            };
+        }
+
+        var dy = line.end[1] - line.origin[1];
+
+        var slope = dy / dx;
+        var yIntercept = line.origin[1] - slope * line.origin[0];
+
+        return {
+            line: line,
+            hasSlope: true,
+            slope: slope,
+            yIntercept: yIntercept
+        };
     }
 
     /**
@@ -203,7 +260,7 @@ module MakerJs.measure {
 
         map[pathType.Arc] = function (arc: IPathArc) {
             map[pathType.Circle](arc); //this sets the value var
-            var pct = arcAngle(arc) / 360;
+            var pct = angle.ofArcSpan(arc) / 360;
             value *= pct;
         }
 

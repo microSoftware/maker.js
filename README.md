@@ -28,6 +28,10 @@ Easily add a curvature at the joint between any 2 paths, using a [traditional fi
 
 [Detect loops](http://microsoft.github.io/maker.js/docs/api/modules/makerjs.model.html#findloops) formed by paths connecting end to end.
 
+NEW: [Expand paths](http://microsoft.github.io/maker.js/docs/api/modules/makerjs.model.html#expandpaths) to simulate a stroke thickness, with the option to bevel joints.
+
+NEW: [Outline model](http://microsoft.github.io/maker.js/docs/api/modules/makerjs.model.html#outline) to create a surrounding outline, with the option to bevel joints.
+
 ### Output formats
 
 2D: [DXF](http://microsoft.github.io/maker.js/docs/api/modules/makerjs.exporter.html#todxf), [SVG](http://microsoft.github.io/maker.js/docs/api/modules/makerjs.exporter.html#tosvg)
@@ -87,6 +91,12 @@ In your JavaScript, use the require function to get a reference:
 ```javascript
 var makerjs = require('makerjs');
 ```
+
+### Draw!
+Learn how to draw in Maker.js by folowing [the tutorial](http://microsoft.github.io/maker.js/docs/basic-drawing/)
+
+### API
+Browse all the library features in the [API Documentation](http://microsoft.github.io/maker.js/docs/api/)
 
 ---
 

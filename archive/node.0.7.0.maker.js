@@ -1,170 +1,3 @@
-require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-
-},{}],2:[function(require,module,exports){
-(function (Buffer){
-var clone = (function() {
-'use strict';
-
-/**
- * Clones (copies) an Object using deep copying.
- *
- * This function supports circular references by default, but if you are certain
- * there are no circular references in your object, you can save some CPU time
- * by calling clone(obj, false).
- *
- * Caution: if `circular` is false and `parent` contains circular references,
- * your program may enter an infinite loop and crash.
- *
- * @param `parent` - the object to be cloned
- * @param `circular` - set to true if the object to be cloned may contain
- *    circular references. (optional - true by default)
- * @param `depth` - set to a number if the object is only to be cloned to
- *    a particular depth. (optional - defaults to Infinity)
- * @param `prototype` - sets the prototype to be used when cloning an object.
- *    (optional - defaults to parent prototype).
-*/
-function clone(parent, circular, depth, prototype) {
-  var filter;
-  if (typeof circular === 'object') {
-    depth = circular.depth;
-    prototype = circular.prototype;
-    filter = circular.filter;
-    circular = circular.circular
-  }
-  // maintain two arrays for circular references, where corresponding parents
-  // and children have the same index
-  var allParents = [];
-  var allChildren = [];
-
-  var useBuffer = typeof Buffer != 'undefined';
-
-  if (typeof circular == 'undefined')
-    circular = true;
-
-  if (typeof depth == 'undefined')
-    depth = Infinity;
-
-  // recurse this function so we don't reset allParents and allChildren
-  function _clone(parent, depth) {
-    // cloning null always returns null
-    if (parent === null)
-      return null;
-
-    if (depth == 0)
-      return parent;
-
-    var child;
-    var proto;
-    if (typeof parent != 'object') {
-      return parent;
-    }
-
-    if (clone.__isArray(parent)) {
-      child = [];
-    } else if (clone.__isRegExp(parent)) {
-      child = new RegExp(parent.source, __getRegExpFlags(parent));
-      if (parent.lastIndex) child.lastIndex = parent.lastIndex;
-    } else if (clone.__isDate(parent)) {
-      child = new Date(parent.getTime());
-    } else if (useBuffer && Buffer.isBuffer(parent)) {
-      child = new Buffer(parent.length);
-      parent.copy(child);
-      return child;
-    } else {
-      if (typeof prototype == 'undefined') {
-        proto = Object.getPrototypeOf(parent);
-        child = Object.create(proto);
-      }
-      else {
-        child = Object.create(prototype);
-        proto = prototype;
-      }
-    }
-
-    if (circular) {
-      var index = allParents.indexOf(parent);
-
-      if (index != -1) {
-        return allChildren[index];
-      }
-      allParents.push(parent);
-      allChildren.push(child);
-    }
-
-    for (var i in parent) {
-      var attrs;
-      if (proto) {
-        attrs = Object.getOwnPropertyDescriptor(proto, i);
-      }
-
-      if (attrs && attrs.set == null) {
-        continue;
-      }
-      child[i] = _clone(parent[i], depth - 1);
-    }
-
-    return child;
-  }
-
-  return _clone(parent, depth);
-}
-
-/**
- * Simple flat clone using prototype, accepts only objects, usefull for property
- * override on FLAT configuration object (no nested props).
- *
- * USE WITH CAUTION! This may not behave as you wish if you do not know how this
- * works.
- */
-clone.clonePrototype = function clonePrototype(parent) {
-  if (parent === null)
-    return null;
-
-  var c = function () {};
-  c.prototype = parent;
-  return new c();
-};
-
-// private utility functions
-
-function __objToStr(o) {
-  return Object.prototype.toString.call(o);
-};
-clone.__objToStr = __objToStr;
-
-function __isDate(o) {
-  return typeof o === 'object' && __objToStr(o) === '[object Date]';
-};
-clone.__isDate = __isDate;
-
-function __isArray(o) {
-  return typeof o === 'object' && __objToStr(o) === '[object Array]';
-};
-clone.__isArray = __isArray;
-
-function __isRegExp(o) {
-  return typeof o === 'object' && __objToStr(o) === '[object RegExp]';
-};
-clone.__isRegExp = __isRegExp;
-
-function __getRegExpFlags(re) {
-  var flags = '';
-  if (re.global) flags += 'g';
-  if (re.ignoreCase) flags += 'i';
-  if (re.multiline) flags += 'm';
-  return flags;
-};
-clone.__getRegExpFlags = __getRegExpFlags;
-
-return clone;
-})();
-
-if (typeof module === 'object' && module.exports) {
-  module.exports = clone;
-}
-
-}).call(this,require("buffer").Buffer)
-},{"buffer":1}],"makerjs":[function(require,module,exports){
 /*! *****************************************************************************
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
@@ -1966,13 +1799,13 @@ var MakerJs;
          * Expand all paths in a model, then combine the resulting expansions.
          *
          * @param modelToExpand Model to expand.
-         * @param distance Distance to expand.
+         * @param expansion Distance to expand.
          * @param joints Number of points at a joint between paths. Use 0 for round joints, 1 for pointed joints, 2 for beveled joints.
          * @returns Model which surrounds the paths of the original model.
          */
-        function expandPaths(modelToExpand, distance, joints) {
+        function expandPaths(modelToExpand, expansion, joints) {
             if (joints === void 0) { joints = 0; }
-            if (distance <= 0)
+            if (expansion <= 0)
                 return null;
             var result = {
                 models: {
@@ -1984,7 +1817,7 @@ var MakerJs;
             //TODO: work without origination
             var originated = model.originate(modelToExpand);
             model.walkPaths(originated, function (modelContext, pathId, pathContext) {
-                var expandedPathModel = MakerJs.path.expand(pathContext, distance, true);
+                var expandedPathModel = MakerJs.path.expand(pathContext, expansion, true);
                 if (expandedPathModel) {
                     var newId = model.getSimilarModelId(result.models['expansions'], pathId);
                     model.originate(expandedPathModel);
@@ -2020,40 +1853,6 @@ var MakerJs;
             return result;
         }
         model.expandPaths = expandPaths;
-        /**
-         * Outline a model by a specified distance. Useful for accommodating for kerf.
-         *
-         * @param modelToOutline Model to outline.
-         * @param distance Distance to outline.
-         * @param joints Number of points at a joint between paths. Use 0 for round joints, 1 for pointed joints, 2 for beveled joints.
-         * @param inside Optional boolean to draw lines inside the model instead of outside.
-         * @returns Model which surrounds the paths outside of the original model.
-         */
-        function outline(modelToOutline, distance, joints, inside) {
-            if (joints === void 0) { joints = 0; }
-            if (inside === void 0) { inside = false; }
-            var expanded = expandPaths(modelToOutline, distance, joints);
-            if (!expanded)
-                return null;
-            var loops = model.findLoops(expanded);
-            if (loops && loops.models) {
-                var i = 0;
-                while (loops.models[i]) {
-                    if (inside) {
-                        delete loops.models[i];
-                        delete loops.models[i + 3];
-                    }
-                    else {
-                        delete loops.models[i + 1];
-                        delete loops.models[i + 2];
-                    }
-                    i += 4;
-                }
-                return loops;
-            }
-            return null;
-        }
-        model.outline = outline;
     })(model = MakerJs.model || (MakerJs.model = {}));
 })(MakerJs || (MakerJs = {}));
 var MakerJs;
@@ -4710,5 +4509,3 @@ var MakerJs;
         ];
     })(models = MakerJs.models || (MakerJs.models = {}));
 })(MakerJs || (MakerJs = {}));
-
-},{"clone":2}]},{},[]);

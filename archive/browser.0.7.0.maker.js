@@ -1966,13 +1966,13 @@ var MakerJs;
          * Expand all paths in a model, then combine the resulting expansions.
          *
          * @param modelToExpand Model to expand.
-         * @param distance Distance to expand.
+         * @param expansion Distance to expand.
          * @param joints Number of points at a joint between paths. Use 0 for round joints, 1 for pointed joints, 2 for beveled joints.
          * @returns Model which surrounds the paths of the original model.
          */
-        function expandPaths(modelToExpand, distance, joints) {
+        function expandPaths(modelToExpand, expansion, joints) {
             if (joints === void 0) { joints = 0; }
-            if (distance <= 0)
+            if (expansion <= 0)
                 return null;
             var result = {
                 models: {
@@ -1984,7 +1984,7 @@ var MakerJs;
             //TODO: work without origination
             var originated = model.originate(modelToExpand);
             model.walkPaths(originated, function (modelContext, pathId, pathContext) {
-                var expandedPathModel = MakerJs.path.expand(pathContext, distance, true);
+                var expandedPathModel = MakerJs.path.expand(pathContext, expansion, true);
                 if (expandedPathModel) {
                     var newId = model.getSimilarModelId(result.models['expansions'], pathId);
                     model.originate(expandedPathModel);
@@ -2020,40 +2020,6 @@ var MakerJs;
             return result;
         }
         model.expandPaths = expandPaths;
-        /**
-         * Outline a model by a specified distance. Useful for accommodating for kerf.
-         *
-         * @param modelToOutline Model to outline.
-         * @param distance Distance to outline.
-         * @param joints Number of points at a joint between paths. Use 0 for round joints, 1 for pointed joints, 2 for beveled joints.
-         * @param inside Optional boolean to draw lines inside the model instead of outside.
-         * @returns Model which surrounds the paths outside of the original model.
-         */
-        function outline(modelToOutline, distance, joints, inside) {
-            if (joints === void 0) { joints = 0; }
-            if (inside === void 0) { inside = false; }
-            var expanded = expandPaths(modelToOutline, distance, joints);
-            if (!expanded)
-                return null;
-            var loops = model.findLoops(expanded);
-            if (loops && loops.models) {
-                var i = 0;
-                while (loops.models[i]) {
-                    if (inside) {
-                        delete loops.models[i];
-                        delete loops.models[i + 3];
-                    }
-                    else {
-                        delete loops.models[i + 1];
-                        delete loops.models[i + 2];
-                    }
-                    i += 4;
-                }
-                return loops;
-            }
-            return null;
-        }
-        model.outline = outline;
     })(model = MakerJs.model || (MakerJs.model = {}));
 })(MakerJs || (MakerJs = {}));
 var MakerJs;
