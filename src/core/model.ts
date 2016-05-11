@@ -93,6 +93,8 @@ namespace MakerJs.model {
     export function mirror(modelToMirror: IModel, mirrorX: boolean, mirrorY: boolean): IModel {
         var newModel: IModel = {};
 
+        if (!modelToMirror) return null;
+
         if (modelToMirror.origin) {
             newModel.origin = point.mirror(modelToMirror.origin, mirrorX, mirrorY);
         }
@@ -156,6 +158,34 @@ namespace MakerJs.model {
         }
 
         return modelToMove;
+    }
+
+    /**
+     * Prefix the ids of paths in a model.
+     * 
+     * @param modelToPrefix The model to prefix.
+     * @param prefix The prefix to prepend on paths ids.
+     * @returns The original model (for chaining).
+     */
+    export function prefixPathIds(modelToPrefix: IModel, prefix: string) {
+
+        var walkedPaths: IWalkPath[] = [];
+
+        //first collect the paths because we don't want to modify keys during an iteration on keys
+        walk(modelToPrefix, {
+            onPath: function (walkedPath: IWalkPath) {
+                walkedPaths.push(walkedPath);
+            }
+        });
+
+        //now modify the ids in our own iteration
+        for (var i = 0; i < walkedPaths.length; i++) {
+            var walkedPath = walkedPaths[i];
+            delete walkedPath.modelContext.paths[walkedPath.pathId];
+            walkedPath.modelContext.paths[prefix + walkedPath.pathId] = walkedPath.pathContext;
+        }
+
+        return modelToPrefix;
     }
 
     /**
@@ -268,6 +298,69 @@ namespace MakerJs.model {
                 walkPaths(modelContext.models[id], callback);
             }
         }
+    }
+
+    /**
+     * Recursively walk through all paths for a given model.
+     * 
+     * @param modelContext The model to walk.
+     * @param pathCallback Callback for each path.
+     * @param modelCallbackBeforeWalk Callback for each model prior to recursion, which can cancel the recursion if it returns false.
+     * @param modelCallbackAfterWalk Callback for each model after recursion.
+     */
+    export function walk(modelContext: IModel, options: IWalkOptions) {
+
+        if (!modelContext) return;
+
+        function walkRecursive(modelContext: IModel, offset: IPoint, route: string[], routeKey: string) {
+
+            var newOffset = point.add(modelContext.origin, offset);
+
+            if (modelContext.paths) {
+                for (var pathId in modelContext.paths) {
+                    if (!modelContext.paths[pathId]) continue;
+
+                    var walkedPath: IWalkPath = {
+                        modelContext: modelContext,
+                        offset: newOffset,
+                        pathContext: modelContext.paths[pathId],
+                        pathId: pathId,
+                        route: route.concat(['paths', pathId]),
+                        routeKey: routeKey + '.paths' + JSON.stringify([pathId])
+                    };
+
+                    if (options.onPath) options.onPath(walkedPath);
+                }
+            }
+
+            if (modelContext.models) {
+                for (var modelId in modelContext.models) {
+                    if (!modelContext.models[modelId]) continue;
+
+                    var walkedModel: IWalkModel = {
+                        parentModel: modelContext,
+                        offset: newOffset,
+                        route: route.concat(['models', modelId]),
+                        routeKey: routeKey + '.models' + JSON.stringify([modelId]),
+                        childId: modelId,
+                        childModel: modelContext.models[modelId]
+                    };
+
+                    if (options.beforeChildWalk) {
+                        if (!options.beforeChildWalk(walkedModel)) continue;
+                    }
+
+                    walkRecursive(walkedModel.childModel, newOffset, walkedModel.route, walkedModel.routeKey);
+
+                    if (options.afterChildWalk) {
+                        options.afterChildWalk(walkedModel);
+                    }
+                }
+            }
+        }
+
+        walkRecursive(modelContext, [0, 0], [], '');
+
     }
 
 }

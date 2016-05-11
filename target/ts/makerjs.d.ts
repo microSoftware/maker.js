@@ -52,6 +52,13 @@ declare namespace MakerJs {
      */
     function round(n: number, accuracy?: number): number;
     /**
+     * Create a string representation of a route array.
+     *
+     * @param route Array of strings which are segments of a route.
+     * @returns String of the flattened array.
+     */
+    function createRouteKey(route: string[]): string;
+    /**
      * Clone an object.
      *
      * @param objectToClone The object to clone.
@@ -102,6 +109,12 @@ declare namespace MakerJs {
          * The point containing both the highest x and y values of the rectangle containing the item being measured.
          */
         high: IPoint;
+    }
+    /**
+     * A map of measurements.
+     */
+    interface IMeasureMap {
+        [key: string]: IMeasure;
     }
     /**
      * A line, curved line or other simple two dimensional shape.
@@ -195,7 +208,6 @@ declare namespace MakerJs {
     function isPathArc(item: any): boolean;
     /**
      * A map of functions which accept a path as a parameter.
-     * @private
      */
     interface IPathFunctionMap {
         /**
@@ -205,7 +217,6 @@ declare namespace MakerJs {
     }
     /**
      * A map of functions which accept a path and an origin point as parameters.
-     * @private
      */
     interface IPathOriginFunctionMap {
         /**
@@ -251,7 +262,7 @@ declare namespace MakerJs {
     /**
      * Options to pass to path.intersection()
      */
-    interface IPathIntersectionOptions {
+    interface IPathIntersectionBaseOptions {
         /**
          * Optional boolean to only return deep intersections, i.e. not on an end point or tangent.
          */
@@ -260,6 +271,19 @@ declare namespace MakerJs {
          * Optional output variable which will be set to true if the paths are overlapped.
          */
         out_AreOverlapped?: boolean;
+    }
+    /**
+     * Options to pass to path.intersection()
+     */
+    interface IPathIntersectionOptions extends IPathIntersectionBaseOptions {
+        /**
+         * Optional boolean to only return deep intersections, i.e. not on an end point or tangent.
+         */
+        path1Offset?: IPoint;
+        /**
+         * Optional output variable which will be set to true if the paths are overlapped.
+         */
+        path2Offset?: IPoint;
     }
     /**
      * An intersection of two paths.
@@ -303,6 +327,14 @@ declare namespace MakerJs {
          * Point which is known to be outside of the model.
          */
         farPoint?: IPoint;
+        /**
+         * Cached measurements for model A.
+         */
+        measureA?: measure.Atlas;
+        /**
+         * Cached measurements for model B.
+         */
+        measureB?: measure.Atlas;
     }
     /**
      * Options to pass to model.findLoops.
@@ -425,13 +457,64 @@ declare namespace MakerJs {
     }
     /**
      * A map of functions which accept a path reference as a parameter.
-     * @private
      */
     interface IRefPathInModelFunctionMap {
         /**
          * Key is the type of a path, value is a function which accepts a path object as its parameter.
          */
         [type: string]: (refPathInModel: IRefPathInModel) => void;
+    }
+    /**
+     * A route to either a path or a model, and the absolute offset of it.
+     */
+    interface IRouteOffset {
+        offset: IPoint;
+        route: string[];
+        routeKey: string;
+    }
+    /**
+     * A path reference in a walk.
+     */
+    interface IWalkPath extends IRefPathInModel, IRouteOffset {
+    }
+    /**
+     * Callback signature for path in model.walk().
+     */
+    interface IWalkPathCallback {
+        (context: IWalkPath): void;
+    }
+    /**
+     * Reference to a model within a model.
+     */
+    interface IRefModelInModel {
+        parentModel: IModel;
+        childId: string;
+        childModel: IModel;
+    }
+    /**
+     * A model reference in a walk.
+     */
+    interface IWalkModel extends IRefModelInModel, IRouteOffset {
+    }
+    /**
+     * Callback signature for model.walk().
+     */
+    interface IWalkModelCallback {
+        (context: IWalkModel): void;
+    }
+    /**
+     * Callback signature for model.walk(), which may return false to halt any further walking.
+     */
+    interface IWalkModelCancellableCallback {
+        (context: IWalkModel): boolean;
+    }
+    /**
+     * Options to pass to model.walk().
+     */
+    interface IWalkOptions {
+        onPath?: IWalkPathCallback;
+        beforeChildWalk?: IWalkModelCancellableCallback;
+        afterChildWalk?: IWalkModelCallback;
     }
     /**
      * Describes a parameter and its limits.
@@ -620,16 +703,16 @@ declare namespace MakerJs.point {
      * @param pathContext The path object.
      * @returns Array with 2 elements: [0] is the point object corresponding to the origin, [1] is the point object corresponding to the end.
      */
-    function fromPathEnds(pathContext: IPath): IPoint[];
+    function fromPathEnds(pathContext: IPath, pathOffset?: IPoint): IPoint[];
     /**
      * Calculates the intersection of slopes of two lines.
      *
-     * @param line1 First line to use for slope.
-     * @param line2 Second line to use for slope.
+     * @param lineA First line to use for slope.
+     * @param lineB Second line to use for slope.
      * @param options Optional IPathIntersectionOptions.
      * @returns point of intersection of the two slopes, or null if the slopes did not intersect.
      */
-    function fromSlopeIntersection(line1: IPathLine, line2: IPathLine, options?: IPathIntersectionOptions): IPoint;
+    function fromSlopeIntersection(lineA: IPathLine, lineB: IPathLine, options?: IPathIntersectionBaseOptions): IPoint;
     /**
      * Get the middle point of a path.
      *
@@ -673,14 +756,6 @@ declare namespace MakerJs.point {
      */
     function scale(pointToScale: IPoint, scaleValue: number): IPoint;
     /**
-     * Get a string representation of a point.
-     *
-     * @param pointContext The point to serialize.
-     * @param accuracy Optional exemplar of number of decimal places.
-     * @returns String representing the point.
-     */
-    function serialize(pointContext: IPoint, accuracy?: number): string;
-    /**
      * Subtract a point from another point, and return the result as a new point. Shortcut to Add(a, b, subtract = true).
      *
      * @param a First point.
@@ -697,6 +772,13 @@ declare namespace MakerJs.point {
     function zero(): IPoint;
 }
 declare namespace MakerJs.path {
+    /**
+     * Create a clone of a path. This is faster than cloneObject.
+     *
+     * @param pathToClone The path to clone.
+     * @returns Cloned path.
+     */
+    function clone(pathToClone: IPath): IPath;
     /**
      * Create a clone of a path, mirrored on either or both x and y axes.
      *
@@ -720,9 +802,18 @@ declare namespace MakerJs.path {
      *
      * @param pathToMove The path to move.
      * @param delta The x & y adjustments as a point object.
+     * @param subtract Optional boolean to subtract instead of add.
      * @returns The original path (for chaining).
      */
-    function moveRelative(pathToMove: IPath, delta: IPoint): IPath;
+    function moveRelative(pathToMove: IPath, delta: IPoint, subtract?: boolean): IPath;
+    /**
+     * Move some paths relatively during a task execution, then unmove them.
+     *
+     * @param pathsToMove The paths to move.
+     * @param deltas The x & y adjustments as a point object array.
+     * @param task The function to call while the paths are temporarily moved.
+     */
+    function moveTemporary(pathsToMove: IPath[], deltas: IPoint[], task: Function): void;
     /**
      * Rotate a path.
      *
@@ -775,29 +866,29 @@ declare namespace MakerJs.paths {
         /**
          * Class for arc path, created from 2 points, radius, large Arc flag, and clockwise flag.
          *
-         * @param p1 First end point of the arc.
-         * @param p2 Second end point of the arc.
+         * @param pointA First end point of the arc.
+         * @param pointB Second end point of the arc.
          * @param radius The radius of the arc.
          * @param largeArc Boolean flag to indicate clockwise direction.
          * @param clockwise Boolean flag to indicate clockwise direction.
          */
-        constructor(p1: IPoint, p2: IPoint, radius: number, largeArc: boolean, clockwise: boolean);
+        constructor(pointA: IPoint, pointB: IPoint, radius: number, largeArc: boolean, clockwise: boolean);
         /**
          * Class for arc path, created from 2 points and optional boolean flag indicating clockwise.
          *
-         * @param p1 First end point of the arc.
-         * @param p2 Second end point of the arc.
+         * @param pointA First end point of the arc.
+         * @param pointB Second end point of the arc.
          * @param clockwise Boolean flag to indicate clockwise direction.
          */
-        constructor(p1: IPoint, p2: IPoint, clockwise?: boolean);
+        constructor(pointA: IPoint, pointB: IPoint, clockwise?: boolean);
         /**
          * Class for arc path, created from 3 points.
          *
-         * @param p1 First end point of the arc.
-         * @param p2 Middle point on the arc.
-         * @param p3 Second end point of the arc.
+         * @param pointA First end point of the arc.
+         * @param pointB Middle point on the arc.
+         * @param pointC Second end point of the arc.
          */
-        constructor(p1: IPoint, p2: IPoint, p3: IPoint);
+        constructor(pointA: IPoint, pointB: IPoint, pointC: IPoint);
     }
     /**
      * Class for circle path.
@@ -816,18 +907,18 @@ declare namespace MakerJs.paths {
         /**
          * Class for circle path, created from 2 points.
          *
-         * @param p1 First point on the circle.
-         * @param p2 Second point on the circle.
+         * @param pointA First point on the circle.
+         * @param pointB Second point on the circle.
          */
-        constructor(p1: IPoint, p2: IPoint);
+        constructor(pointA: IPoint, pointB: IPoint);
         /**
          * Class for circle path, created from 3 points.
          *
-         * @param p1 First point on the circle.
-         * @param p2 Second point on the circle.
-         * @param p3 Third point on the circle.
+         * @param pointA First point on the circle.
+         * @param pointB Second point on the circle.
+         * @param pointC Third point on the circle.
          */
-        constructor(p1: IPoint, p2: IPoint, p3: IPoint);
+        constructor(pointA: IPoint, pointB: IPoint, pointC: IPoint);
     }
     /**
      * Class for line path.
@@ -921,6 +1012,14 @@ declare namespace MakerJs.model {
      */
     function moveRelative(modelToMove: IModel, delta: IPoint): IModel;
     /**
+     * Prefix the ids of paths in a model.
+     *
+     * @param modelToPrefix The model to prefix.
+     * @param prefix The prefix to prepend on paths ids.
+     * @returns The original model (for chaining).
+     */
+    function prefixPathIds(modelToPrefix: IModel, prefix: string): IModel;
+    /**
      * Rotate a model.
      *
      * @param modelToRotate The model to rotate.
@@ -953,6 +1052,15 @@ declare namespace MakerJs.model {
      * @param callback Callback for each path.
      */
     function walkPaths(modelContext: IModel, callback: IModelPathCallback): void;
+    /**
+     * Recursively walk through all paths for a given model.
+     *
+     * @param modelContext The model to walk.
+     * @param pathCallback Callback for each path.
+     * @param modelCallbackBeforeWalk Callback for each model prior to recursion, which can cancel the recursion if it returns false.
+     * @param modelCallbackAfterWalk Callback for each model after recursion.
+     */
+    function walk(modelContext: IModel, options: IWalkOptions): void;
 }
 declare namespace MakerJs.model {
     /**
@@ -963,7 +1071,7 @@ declare namespace MakerJs.model {
      * @param farPoint Optional point of reference which is outside the bounds of the modelContext.
      * @returns Boolean true if the path is inside of the modelContext.
      */
-    function isPathInsideModel(pathContext: IPath, modelContext: IModel, farPoint?: IPoint): boolean;
+    function isPathInsideModel(pathContext: IPath, modelContext: IModel, pathOffset?: IPoint, farPoint?: IPoint, measureAtlas?: measure.Atlas): boolean;
     /**
      * Break a model's paths everywhere they intersect with another path.
      *
@@ -972,7 +1080,7 @@ declare namespace MakerJs.model {
      */
     function breakPathsAtIntersections(modelToBreak: IModel, modelToIntersect?: IModel): void;
     /**
-     * Combine 2 models. The models should be originated, and every path within each model should be part of a loop.
+     * Combine 2 models.
      *
      * @param modelA First model to combine.
      * @param modelB Second model to combine.
@@ -984,6 +1092,27 @@ declare namespace MakerJs.model {
      * @param farPoint Optional point of reference which is outside the bounds of both models.
      */
     function combine(modelA: IModel, modelB: IModel, includeAInsideB?: boolean, includeAOutsideB?: boolean, includeBInsideA?: boolean, includeBOutsideA?: boolean, options?: ICombineOptions): void;
+    /**
+     * Combine 2 models, resulting in a intersection.
+     *
+     * @param modelA First model to combine.
+     * @param modelB Second model to combine.
+     */
+    function combineIntersection(modelA: IModel, modelB: IModel): void;
+    /**
+     * Combine 2 models, resulting in a subtraction of B from A.
+     *
+     * @param modelA First model to combine.
+     * @param modelB Second model to combine.
+     */
+    function combineSubtraction(modelA: IModel, modelB: IModel): void;
+    /**
+     * Combine 2 models, resulting in a union.
+     *
+     * @param modelA First model to combine.
+     * @param modelB Second model to combine.
+     */
+    function combineUnion(modelA: IModel, modelB: IModel): void;
 }
 declare namespace MakerJs {
     /**
@@ -1038,9 +1167,10 @@ declare namespace MakerJs.path {
      *
      * @param arc Arc to straighten.
      * @param bevel Optional flag to bevel the angle to prevent it from being too sharp.
+     * @param prefix Optional prefix to apply to path ids.
      * @returns Model of straight lines with same endpoints as the arc.
      */
-    function straighten(arc: IPathArc, bevel?: boolean): IModel;
+    function straighten(arc: IPathArc, bevel?: boolean, prefix?: string): IModel;
 }
 declare namespace MakerJs.model {
     /**
@@ -1051,7 +1181,7 @@ declare namespace MakerJs.model {
      * @param joints Number of points at a joint between paths. Use 0 for round joints, 1 for pointed joints, 2 for beveled joints.
      * @returns Model which surrounds the paths of the original model.
      */
-    function expandPaths(modelToExpand: IModel, distance: number, joints?: number): IModel;
+    function expandPaths(modelToExpand: IModel, distance: number, joints?: number, combineOptions?: ICombineOptions): IModel;
     /**
      * Outline a model by a specified distance. Useful for accommodating for kerf.
      *
@@ -1077,19 +1207,19 @@ declare namespace MakerJs.measure {
     /**
      * Find out if two angles are equal.
      *
-     * @param a First angle.
-     * @param b Second angle.
+     * @param angleA First angle.
+     * @param angleB Second angle.
      * @returns true if angles are the same, false if they are not
      */
-    function isAngleEqual(angle1: number, angle2: number, accuracy?: number): boolean;
+    function isAngleEqual(angleA: number, angleB: number, accuracy?: number): boolean;
     /**
      * Find out if two paths are equal.
      *
-     * @param a First path.
-     * @param b Second path.
+     * @param pathA First path.
+     * @param pathB Second path.
      * @returns true if paths are the same, false if they are not
      */
-    function isPathEqual(path1: IPath, path2: IPath, withinPointDistance?: number): boolean;
+    function isPathEqual(pathA: IPath, pathB: IPath, withinPointDistance?: number, pathAOffset?: IPoint, pathBOffset?: IPoint): boolean;
     /**
      * Find out if two points are equal.
      *
@@ -1101,13 +1231,22 @@ declare namespace MakerJs.measure {
     /**
      * Check for slope equality.
      *
-     * @param slope1 The ISlope to test.
-     * @param slope2 The ISlope to check for equality.
+     * @param slopeA The ISlope to test.
+     * @param slopeB The ISlope to check for equality.
      * @returns Boolean true if slopes are equal.
      */
-    function isSlopeEqual(slope1: ISlope, slope2: ISlope): boolean;
+    function isSlopeEqual(slopeA: ISlope, slopeB: ISlope): boolean;
 }
 declare namespace MakerJs.measure {
+    /**
+     * Increase a measurement by an additional measurement.
+     *
+     * @param baseMeasure The measurement to increase.
+     * @param addMeasure The additional measurement.
+     * @param addOffset Optional offset point of the additional measurement.
+     * @returns The increased original measurement (for chaining).
+     */
+    function increase(baseMeasure: IMeasure, addMeasure: IMeasure): IMeasure;
     /**
      * Check for arc being concave or convex towards a given point.
      *
@@ -1119,22 +1258,22 @@ declare namespace MakerJs.measure {
     /**
      * Check for arc overlapping another arc.
      *
-     * @param arc1 The arc to test.
-     * @param arc2 The arc to check for overlap.
+     * @param arcA The arc to test.
+     * @param arcB The arc to check for overlap.
      * @param excludeTangents Boolean to exclude exact endpoints and only look for deep overlaps.
-     * @returns Boolean true if arc1 is overlapped with arc2.
+     * @returns Boolean true if arc1 is overlapped with arcB.
      */
-    function isArcOverlapping(arc1: IPathArc, arc2: IPathArc, excludeTangents: boolean): boolean;
+    function isArcOverlapping(arcA: IPathArc, arcB: IPathArc, excludeTangents: boolean): boolean;
     /**
      * Check if a given number is between two given limits.
      *
      * @param valueInQuestion The number to test.
-     * @param limit1 First limit.
-     * @param limit2 Second limit.
+     * @param limitA First limit.
+     * @param limitB Second limit.
      * @param exclusive Flag to exclude equaling the limits.
      * @returns Boolean true if value is between (or equal to) the limits.
      */
-    function isBetween(valueInQuestion: number, limit1: number, limit2: number, exclusive: boolean): boolean;
+    function isBetween(valueInQuestion: number, limitA: number, limitB: number, exclusive: boolean): boolean;
     /**
      * Check if a given angle is between an arc's start and end angles.
      *
@@ -1156,12 +1295,20 @@ declare namespace MakerJs.measure {
     /**
      * Check for line overlapping another line.
      *
-     * @param line1 The line to test.
-     * @param line2 The line to check for overlap.
+     * @param lineA The line to test.
+     * @param lineB The line to check for overlap.
      * @param excludeTangents Boolean to exclude exact endpoints and only look for deep overlaps.
-     * @returns Boolean true if line1 is overlapped with line2.
+     * @returns Boolean true if line1 is overlapped with lineB.
      */
-    function isLineOverlapping(line1: IPathLine, line2: IPathLine, excludeTangents: boolean): boolean;
+    function isLineOverlapping(lineA: IPathLine, lineB: IPathLine, excludeTangents: boolean): boolean;
+    /**
+     * Check for measurement overlapping another measurement.
+     *
+     * @param measureA The measurement to test.
+     * @param measureB The measurement to check for overlap.
+     * @returns Boolean true if measure1 is overlapped with measureB.
+     */
+    function isMeasurementOverlapping(measureA: IMeasure, measureB: IMeasure): boolean;
     /**
      * Gets the slope of a line.
      */
@@ -1180,7 +1327,7 @@ declare namespace MakerJs.measure {
      * @param pathToMeasure The path to measure.
      * @returns object with low and high points.
      */
-    function pathExtents(pathToMeasure: IPath): IMeasure;
+    function pathExtents(pathToMeasure: IPath, addOffset?: IPoint): IMeasure;
     /**
      * Measures the length of a path.
      *
@@ -1192,9 +1339,38 @@ declare namespace MakerJs.measure {
      * Measures the smallest rectangle which contains a model.
      *
      * @param modelToMeasure The model to measure.
+     * @param atlas Optional atlas to save measurements.
      * @returns object with low and high points.
      */
-    function modelExtents(modelToMeasure: IModel): IMeasure;
+    function modelExtents(modelToMeasure: IModel, atlas?: measure.Atlas): IMeasure;
+    /**
+     * A list of maps of measurements.
+     *
+     * @param modelToMeasure The model to measure.
+     * @param atlas Optional atlas to save measurements.
+     * @returns object with low and high points.
+     */
+    class Atlas {
+        modelContext: IModel;
+        /**
+         * Flag that models have been measured.
+         */
+        modelsMeasured: boolean;
+        /**
+         * Map of model measurements, mapped by routeKey.
+         */
+        modelMap: IMeasureMap;
+        /**
+         * Map of path measurements, mapped by routeKey.
+         */
+        pathMap: IMeasureMap;
+        /**
+         * Constructor.
+         * @param modelContext The model to measure.
+         */
+        constructor(modelContext: IModel);
+        measureModels(): void;
+    }
 }
 declare namespace MakerJs.exporter {
     /**
@@ -1265,12 +1441,12 @@ declare namespace MakerJs.solvers {
     /**
      * Solves for the angle of a triangle when you know lengths of 3 sides.
      *
-     * @param length1 Length of side of triangle, opposite of the angle you are trying to find.
-     * @param length2 Length of any other side of the triangle.
-     * @param length3 Length of the remaining side of the triangle.
+     * @param lengthA Length of side of triangle, opposite of the angle you are trying to find.
+     * @param lengthB Length of any other side of the triangle.
+     * @param lengthC Length of the remaining side of the triangle.
      * @returns Angle opposite of the side represented by the first parameter.
      */
-    function solveTriangleSSS(length1: number, length2: number, length3: number): number;
+    function solveTriangleSSS(lengthA: number, lengthB: number, lengthC: number): number;
     /**
      * Solves for the length of a side of a triangle when you know length of one side and 2 angles.
      *
@@ -1296,19 +1472,19 @@ declare namespace MakerJs.path {
     /**
      * Adds a round corner to the outside angle between 2 lines. The lines must meet at one point.
      *
-     * @param line1 First line to fillet, which will be modified to fit the fillet.
-     * @param line2 Second line to fillet, which will be modified to fit the fillet.
+     * @param lineA First line to fillet, which will be modified to fit the fillet.
+     * @param lineB Second line to fillet, which will be modified to fit the fillet.
      * @returns Arc path object of the new fillet.
      */
-    function dogbone(line1: IPathLine, line2: IPathLine, filletRadius: number, options?: IPointMatchOptions): IPathArc;
+    function dogbone(lineA: IPathLine, lineB: IPathLine, filletRadius: number, options?: IPointMatchOptions): IPathArc;
     /**
      * Adds a round corner to the inside angle between 2 paths. The paths must meet at one point.
      *
-     * @param path1 First path to fillet, which will be modified to fit the fillet.
-     * @param path2 Second path to fillet, which will be modified to fit the fillet.
+     * @param pathA First path to fillet, which will be modified to fit the fillet.
+     * @param pathB Second path to fillet, which will be modified to fit the fillet.
      * @returns Arc path object of the new fillet.
      */
-    function fillet(path1: IPath, path2: IPath, filletRadius: number, options?: IPointMatchOptions): IPathArc;
+    function fillet(pathA: IPath, pathB: IPath, filletRadius: number, options?: IPointMatchOptions): IPathArc;
 }
 declare namespace MakerJs.kit {
     /**
@@ -1557,7 +1733,9 @@ declare namespace MakerJs.models {
 declare namespace MakerJs.models {
     class Rectangle implements IModel {
         paths: IPathMap;
+        origin: IPoint;
         constructor(width: number, height: number);
+        constructor(measurement: IMeasure);
     }
 }
 declare namespace MakerJs.models {

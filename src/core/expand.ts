@@ -1,6 +1,23 @@
 ﻿namespace MakerJs.path {
 
     /**
+     * @private
+     */
+    var map: { [type: string]: (pathValue: IPath, expansion: number, isolateCaps: boolean) => IModel } = {};
+
+    map[pathType.Arc] = function (arc: IPathArc, expansion: number, isolateCaps: boolean) {
+        return new models.OvalArc(arc.startAngle, arc.endAngle, arc.radius, expansion, false, isolateCaps);
+    };
+
+    map[pathType.Circle] = function (circle: IPathCircle, expansion: number, isolateCaps: boolean) {
+        return new models.Ring(circle.radius + expansion, circle.radius - expansion);
+    }
+
+    map[pathType.Line] = function (line: IPathLine, expansion: number, isolateCaps: boolean) {
+        return new models.Slot(line.origin, line.end, expansion, isolateCaps);
+    }
+
+    /**
      * Expand path by creating a model which surrounds it.
      *
      * @param pathToExpand Path to expand.
@@ -12,25 +29,11 @@
 
         if (!pathToExpand) return null;
 
-        var result: IModel;
-
-        var map: IPathFunctionMap = {};
-
-        map[pathType.Arc] = function (arc: IPathArc) {
-            result = new models.OvalArc(arc.startAngle, arc.endAngle, arc.radius, expansion, false, isolateCaps);
-        };
-
-        map[pathType.Circle] = function (circle: IPathCircle) {
-            result = new models.Ring(circle.radius + expansion, circle.radius - expansion);
-        }
-
-        map[pathType.Line] = function (line: IPathLine) {
-            result = new models.Slot(line.origin, line.end, expansion, isolateCaps);
-        }
+        var result: IModel = null;
 
         var fn = map[pathToExpand.type];
         if (fn) {
-            fn(pathToExpand);
+            result = fn(pathToExpand, expansion, isolateCaps);
             result.origin = pathToExpand.origin;
         }
 
@@ -42,9 +45,10 @@
      *
      * @param arc Arc to straighten.
      * @param bevel Optional flag to bevel the angle to prevent it from being too sharp.
+     * @param prefix Optional prefix to apply to path ids.
      * @returns Model of straight lines with same endpoints as the arc.
      */
-    export function straighten(arc: IPathArc, bevel?: boolean): IModel {
+    export function straighten(arc: IPathArc, bevel?: boolean, prefix?: string): IModel {
 
         var arcSpan = angle.ofArcSpan(arc);
         var joints = 1;
@@ -73,6 +77,10 @@
         var result = new models.ConnectTheDots(false, points);
         (<IModel>result).origin = arc.origin;
 
+        if (typeof prefix === 'string' && prefix.length) {
+            model.prefixPathIds(result, prefix);
+        }
+
         return result;
     }
 
@@ -88,7 +96,7 @@ namespace MakerJs.model {
      * @param joints Number of points at a joint between paths. Use 0 for round joints, 1 for pointed joints, 2 for beveled joints.
      * @returns Model which surrounds the paths of the original model.
      */
-    export function expandPaths(modelToExpand: IModel, distance: number, joints = 0): IModel {
+    export function expandPaths(modelToExpand: IModel, distance: number, joints = 0, combineOptions: ICombineOptions = {}): IModel {
 
         if (distance <= 0) return null;
 
@@ -101,36 +109,40 @@ namespace MakerJs.model {
 
         var first = true;
 
-        //TODO: work without origination
-        var originated = originate(modelToExpand);
+        var walkOptions: IWalkOptions = {
+            onPath: function (walkedPath: IWalkPath) {
+                var expandedPathModel = path.expand(walkedPath.pathContext, distance, true);
 
-        walkPaths(originated, function (modelContext: IModel, pathId: string, pathContext: IPath) {
-            var expandedPathModel = path.expand(pathContext, distance, true);
+                if (expandedPathModel) {
+                    var newId = getSimilarModelId(result.models['expansions'], walkedPath.pathId);
 
-            if (expandedPathModel) {
-                var newId = getSimilarModelId(result.models['expansions'], pathId);
+                    prefixPathIds(expandedPathModel, walkedPath.pathId + '_');
+                    originate(expandedPathModel);
 
-                model.originate(expandedPathModel);
-
-                if (!first) {
-                    model.combine(result, expandedPathModel);
-                }
-
-                result.models['expansions'].models[newId] = expandedPathModel;
-
-                if (expandedPathModel.models) {
-                    var caps = expandedPathModel.models['Caps'];
-
-                    if (caps) {
-                        delete expandedPathModel.models['Caps'];
-
-                        result.models['caps'].models[newId] = caps;
+                    if (!first) {
+                        combine(result, expandedPathModel, false, true, false, true, combineOptions);
+                        combineOptions.measureA.modelsMeasured = false;
+                        delete combineOptions.measureB;
                     }
-                }
 
-                first = false;
+                    result.models['expansions'].models[newId] = expandedPathModel;
+
+                    if (expandedPathModel.models) {
+                        var caps = expandedPathModel.models['Caps'];
+
+                        if (caps) {
+                            delete expandedPathModel.models['Caps'];
+
+                            result.models['caps'].models[newId] = caps;
+                        }
+                    }
+
+                    first = false;
+                }
             }
-        });
+        };
+
+        walk(modelToExpand, walkOptions);
 
         if (joints) {
 
@@ -146,7 +158,7 @@ namespace MakerJs.model {
                 var straightened: IModel = { models: {} };
 
                 walkPaths(roundCaps.models[id], function (modelContext: IModel, pathId: string, pathContext: IPath) {
-                    straightened.models[pathId] = path.straighten(<IPathArc>pathContext, joints == 2);
+                    straightened.models[pathId] = path.straighten(<IPathArc>pathContext, joints == 2, pathId + '_');
                 });
 
                 straightCaps.models[id] = straightened;
@@ -160,6 +172,13 @@ namespace MakerJs.model {
     }
 
     /**
+     * Copy of the same name in loops.ts
+     * @private
+     */
+    interface IPathDirectionalWithPrimeContext extends IPathDirectional, IRefPathIdInModel {
+    }
+
+    /**
      * Outline a model by a specified distance. Useful for accommodating for kerf.
      *
      * @param modelToOutline Model to outline.
@@ -168,7 +187,7 @@ namespace MakerJs.model {
      * @param inside Optional boolean to draw lines inside the model instead of outside.
      * @returns Model which surrounds the paths outside of the original model.
      */
-    export function outline(modelToOutline:IModel, distance: number, joints = 0, inside = false): IModel {
+    export function outline(modelToOutline: IModel, distance: number, joints = 0, inside = false): IModel {
         var expanded = expandPaths(modelToOutline, distance, joints);
 
         if (!expanded) return null;
@@ -176,16 +195,39 @@ namespace MakerJs.model {
         var loops = findLoops(expanded);
         if (loops && loops.models) {
 
+            function clean(modelToClean: IModel) {
+
+                if (!modelToClean) return;
+
+                var walkOptions: IWalkOptions = {
+                    onPath: function (walkedPath: IWalkPath) {
+                        var p = walkedPath.pathContext as IPathDirectionalWithPrimeContext;
+                        delete p.endPoints;
+                        delete p.modelContext;
+                        delete p.pathId;
+                        delete p.reversed;                        
+                    }
+                };
+
+                walk(modelToClean, walkOptions);
+            }
+
             var i = 0;
 
             while (loops.models[i]) {
 
+                var keep: IPoint;
+
                 if (inside) {
                     delete loops.models[i];
+                    clean(loops.models[i + 1]);
+                    clean(loops.models[i + 2]);
                     delete loops.models[i + 3];
                 } else {
+                    clean(loops.models[i]);
                     delete loops.models[i + 1];
                     delete loops.models[i + 2];
+                    clean(loops.models[i + 3]);
                 }
 
                 i += 4;

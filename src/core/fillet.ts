@@ -29,6 +29,21 @@ namespace MakerJs.path {
     /**
      * @private
      */
+    var propertyNamesMap: { [pathType: string]: (pathToInspect: IPath) => string[] } = {};
+
+    propertyNamesMap[pathType.Arc] = function (arc: IPathArc) {
+        return ['startAngle', 'endAngle'];
+    };
+
+    propertyNamesMap[pathType.Line] = function (line: IPathLine) {
+        return ['origin', 'end'];
+    }
+
+    map[pathType.Bezier] = map[pathType.Line];
+
+    /**
+     * @private
+     */
     function getPointProperties(pathToInspect: IPath): IPointProperty[] {
         var points = point.fromPathEnds(pathToInspect);
         if (points) {
@@ -38,21 +53,10 @@ namespace MakerJs.path {
             }
 
             var propertyNames: string[] = null;
-            var map: IPathFunctionMap = {};
 
-            map[pathType.Arc] = function (arc: IPathArc) {
-                propertyNames = ['startAngle', 'endAngle'];
-            };
-
-            map[pathType.Line] = function (line: IPathLine) {
-                propertyNames = ['origin', 'end'];
-            }
-            
-             map[pathType.Bezier] =  map[pathType.Line];
-
-            var fn = map[pathToInspect.type];
+            var fn = propertyNamesMap[pathToInspect.type];
             if (fn) {
-                fn(pathToInspect);
+                propertyNames = fn(pathToInspect);
 
                 return [pointProperty(0), pointProperty(1)];
             }
@@ -63,9 +67,9 @@ namespace MakerJs.path {
     /**
      * @private
      */
-    function getMatchingPointProperties(path1: IPath, path2: IPath, options?: IPointMatchOptions): IMatchPointProperty[] {
-        var path1Properties = getPointProperties(path1);
-        var path2Properties = getPointProperties(path2);
+    function getMatchingPointProperties(pathA: IPath, pathB: IPath, options?: IPointMatchOptions): IMatchPointProperty[] {
+        var pathAProperties = getPointProperties(pathA);
+        var pathBProperties = getPointProperties(pathB);
 
         var result: IMatchPointProperty[] = null;
 
@@ -79,11 +83,11 @@ namespace MakerJs.path {
             };
         }
 
-        function check(i1: number, i2: number) {
-            if (measure.isPointEqual(path1Properties[i1].point, path2Properties[i2].point, .0001)) {
+        function check(iA: number, iB: number) {
+            if (measure.isPointEqual(pathAProperties[iA].point, pathBProperties[iB].point, .0001)) {
                 result = [
-                    makeMatch(path1, path1Properties, i1),
-                    makeMatch(path2, path2Properties, i2)
+                    makeMatch(pathA, pathAProperties, iA),
+                    makeMatch(pathB, pathBProperties, iB)
                 ];
                 return true;
             }
@@ -126,9 +130,41 @@ namespace MakerJs.path {
      * @private
      */
     function cloneAndBreakPath(pathToShard: IPath, shardPoint: IPoint): IPath[] {
-        var shardStart = cloneObject<IPath>(pathToShard);
+        var shardStart = path.clone(pathToShard);
         var shardEnd = breakAtPoint(shardStart, shardPoint);
         return [shardStart, shardEnd];
+    }
+
+    /**
+     * @private
+     */
+    var guidePathMap: { [pathType: string]: (pathContext: IPath, filletRadius: number, nearPoint: IPoint, shardPoint: IPoint, isStart: boolean) => IPath } = {};
+
+    guidePathMap[pathType.Arc] = function (arc: IPathArc, filletRadius: number, nearPoint: IPoint, shardPoint: IPoint, isStart: boolean) {
+        var guideRadius = arc.radius;
+
+        //see if the guideline should be external or internal to the context arc.
+        var guideArcShard = <IPathArc>cloneAndBreakPath(arc, shardPoint)[isStart ? 0 : 1];
+        if (guideArcShard) {
+            if (measure.isArcConcaveTowardsPoint(guideArcShard, nearPoint)) {
+                guideRadius -= filletRadius;
+            } else {
+                guideRadius += filletRadius;
+            }
+
+            return new paths.Arc(arc.origin, guideRadius, arc.startAngle, arc.endAngle);
+        }
+
+        return null;
+    };
+
+    guidePathMap[pathType.Line] = function (line: IPathLine, filletRadius: number, nearPoint: IPoint, shardPoint: IPoint, isStart: boolean) {
+        return new paths.Parallel(line, filletRadius, nearPoint);
+    }
+
+    guidePathMap[pathType.Bezier] = function (bezier: IPathBezier) {
+        //TODO-BEZIER
+        result = null;
     }
 
     /**
@@ -137,36 +173,9 @@ namespace MakerJs.path {
     function getGuidePath(context: IMatchPointProperty, filletRadius: number, nearPoint: IPoint): IPath {
         var result: IPath = null;
 
-        var map: IPathFunctionMap = {};
-
-        map[pathType.Arc] = function (arc: IPathArc) {
-            var guideRadius = arc.radius;
-
-            //see if the guideline should be external or internal to the context arc.
-            var guideArcShard = <IPathArc>cloneAndBreakPath(arc, context.shardPoint)[context.isStart ? 0 : 1];
-            if (guideArcShard) {
-                if (measure.isArcConcaveTowardsPoint(guideArcShard, nearPoint)) {
-                    guideRadius -= filletRadius;
-                } else {
-                    guideRadius += filletRadius;
-                }
-
-                result = new paths.Arc(arc.origin, guideRadius, arc.startAngle, arc.endAngle);
-            }
-        };
-
-        map[pathType.Line] = function (line: IPathLine) {
-            result = new paths.Parallel(line, filletRadius, nearPoint);
-        }
-
-        map[pathType.Bezier] = function (bezier: IPathBezier) {
-            //TODO-BEZIER
-            result = null;
-        }
-
-        var fn = map[context.path.type];
+        var fn = guidePathMap[context.path.type];
         if (fn) {
-            fn(context.path);
+            result = fn(context.path, filletRadius, nearPoint, context.shardPoint, context.isStart);
         }
 
         return result;
@@ -175,57 +184,62 @@ namespace MakerJs.path {
     /**
      * @private
      */
+    var filletResultMap: { [pathType: string]: (pathContext: IPath, propertyName: string, filletRadius: number, filletCenter: IPoint) => IFilletResult } = {};
+
+    filletResultMap[pathType.Arc] = function (arc: IPathArc, propertyName: string, filletRadius: number, filletCenter: IPoint) {
+        var guideLine = new paths.Line(arc.origin, filletCenter);
+        var guideLineAngle = angle.ofLineInDegrees(guideLine);
+        var filletAngle = guideLineAngle;
+
+        //the context is an arc and the fillet is an arc so they will be tangent. If the fillet is external to the arc then the tangent is opposite.
+        if (!measure.isArcConcaveTowardsPoint(arc, filletCenter)) {
+            filletAngle += 180;
+        }
+
+        return {
+            filletAngle: angle.noRevolutions(filletAngle),
+            clipPath: function () {
+                arc[propertyName] = guideLineAngle;
+            }
+        };
+    };
+
+    filletResultMap[pathType.Line] = function (line: IPathLine, propertyName: string, filletRadius: number, filletCenter: IPoint) {
+        //make a small vertical line
+        var guideLine = new paths.Line([0, 0], [0, 1]);
+
+        //rotate this vertical line the same angle as the line context. It will be perpendicular.
+        var lineAngle = angle.ofLineInDegrees(line);
+        path.rotate(guideLine, lineAngle, [0, 0]);
+        path.moveRelative(guideLine, filletCenter);
+
+        //get the intersection point of the slopes of the context line and the perpendicular line. This is where the fillet meets the line.
+        var intersectionPoint = point.fromSlopeIntersection(line, guideLine);
+        if (intersectionPoint) {
+            return {
+                filletAngle: angle.ofPointInDegrees(filletCenter, intersectionPoint),
+                clipPath: function () {
+                    line[propertyName] = intersectionPoint;
+                }
+            };
+        }
+
+        return null;
+    }
+
+    filletResultMap[pathType.Bezier] = function (bezier: IPathBezier) {
+        //TODO-BEZIER
+    }
+
+    /**
+     * @private
+     */
     function getFilletResult(context: IMatchPointProperty, filletRadius: number, filletCenter: IPoint): IFilletResult {
         var result: IFilletResult = null;
 
-        var map: IPathFunctionMap = {};
-
-        map[pathType.Arc] = function (arc: IPathArc) {
-            var guideLine = new paths.Line(arc.origin, filletCenter);
-            var guideLineAngle = angle.ofLineInDegrees(guideLine);
-            var filletAngle = guideLineAngle;
-
-            //the context is an arc and the fillet is an arc so they will be tangent. If the fillet is external to the arc then the tangent is opposite.
-            if (!measure.isArcConcaveTowardsPoint(arc, filletCenter)) {
-                filletAngle += 180;
-            }
-
-            result = {
-                filletAngle: angle.noRevolutions(filletAngle),
-                clipPath: function () {
-                    arc[context.propertyName] = guideLineAngle;
-                }
-            };
-        };
-
-        map[pathType.Line] = function (line: IPathLine) {
-            //make a small vertical line
-            var guideLine = new paths.Line([0, 0], [0, 1]);
-
-            //rotate this vertical line the same angle as the line context. It will be perpendicular.
-            var lineAngle = angle.ofLineInDegrees(line);
-            path.rotate(guideLine, lineAngle, [0, 0]);
-            path.moveRelative(guideLine, filletCenter);
-
-            //get the intersection point of the slopes of the context line and the perpendicular line. This is where the fillet meets the line.
-            var intersectionPoint = point.fromSlopeIntersection(line, guideLine);
-            if (intersectionPoint) {
-                result = {
-                    filletAngle: angle.ofPointInDegrees(filletCenter, intersectionPoint),
-                    clipPath: function () {
-                        line[context.propertyName] = intersectionPoint;
-                    }
-                };
-            }
-        };
-
-        map[pathType.Bezier] = function (bezier: IPathBezier) {
-            //TODO-BEZIER
-        }
-
-        var fn = map[context.path.type];
+        var fn = filletResultMap[context.path.type];
         if (fn) {
-            fn(context.path);
+            result = fn(context.path, context.propertyName, filletRadius, filletCenter);
         }
 
         if (!testFilletResult(context, result)) {
@@ -296,13 +310,13 @@ namespace MakerJs.path {
     /**
      * Adds a round corner to the outside angle between 2 lines. The lines must meet at one point.
      *
-     * @param line1 First line to fillet, which will be modified to fit the fillet.
-     * @param line2 Second line to fillet, which will be modified to fit the fillet.
+     * @param lineA First line to fillet, which will be modified to fit the fillet.
+     * @param lineB Second line to fillet, which will be modified to fit the fillet.
      * @returns Arc path object of the new fillet.
      */
-    export function dogbone(line1: IPathLine, line2: IPathLine, filletRadius: number, options?: IPointMatchOptions): IPathArc {
+    export function dogbone(lineA: IPathLine, lineB: IPathLine, filletRadius: number, options?: IPointMatchOptions): IPathArc {
 
-        if (isPathLine(line1) && isPathLine(line2) && filletRadius && filletRadius > 0) {
+        if (isPathLine(lineA) && isPathLine(lineB) && filletRadius && filletRadius > 0) {
 
             var opts: IPointMatchOptions = {
                 pointMatchingDistance: .005
@@ -310,11 +324,11 @@ namespace MakerJs.path {
             extendObject(opts, options);
 
             //first find the common point
-            var commonProperty = getMatchingPointProperties(line1, line2, options);
+            var commonProperty = getMatchingPointProperties(lineA, lineB, options);
             if (commonProperty) {
 
                 //get the ratio comparison of the two lines
-                var ratio = getLineRatio([line1, line2]);
+                var ratio = getLineRatio([lineA, lineB]);
 
                 //draw a line between the two endpoints, and get the bisection point at the ratio
                 var span = new paths.Line(commonProperty[0].oppositePoint, commonProperty[1].oppositePoint);
@@ -360,13 +374,13 @@ namespace MakerJs.path {
     /**
      * Adds a round corner to the inside angle between 2 paths. The paths must meet at one point.
      *
-     * @param path1 First path to fillet, which will be modified to fit the fillet.
-     * @param path2 Second path to fillet, which will be modified to fit the fillet.
+     * @param pathA First path to fillet, which will be modified to fit the fillet.
+     * @param pathB Second path to fillet, which will be modified to fit the fillet.
      * @returns Arc path object of the new fillet.
      */
-    export function fillet(path1: IPath, path2: IPath, filletRadius: number, options?: IPointMatchOptions): IPathArc {
+    export function fillet(pathA: IPath, pathB: IPath, filletRadius: number, options?: IPointMatchOptions): IPathArc {
 
-        if (path1 && path2 && filletRadius && filletRadius > 0) {
+        if (pathA && pathB && filletRadius && filletRadius > 0) {
 
             var opts: IPointMatchOptions = {
                 pointMatchingDistance: .005
@@ -374,7 +388,7 @@ namespace MakerJs.path {
             extendObject(opts, options);
 
             //first find the common point
-            var commonProperty = getMatchingPointProperties(path1, path2, options);
+            var commonProperty = getMatchingPointProperties(pathA, pathB, options);
             if (commonProperty) {
 
                 //since arcs can curl beyond, we need a local reference point. 
