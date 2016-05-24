@@ -277,6 +277,7 @@ namespace MakerJs.measure {
 
     pathExtentsMap[pathType.Bezier] = function (bezier: IPathBezier) {
         //TODO-BEZIER
+        return null;
     }
 
     /**
@@ -326,6 +327,7 @@ namespace MakerJs.measure {
 
     pathLengthMap[pathType.Bezier] = function (bezier: IPathBezier) {
         //TODO-BEZIER
+        return null;
     } 
 
     /**

@@ -213,6 +213,7 @@ namespace MakerJs.point {
 
     middleMap[pathType.Bezier] = function (bezier: IPathBezier) {
         //TODO-BEZIER
+        return null;
     };
 
     /**

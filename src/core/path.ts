@@ -77,6 +77,7 @@ namespace MakerJs.path {
 
     mirrorMap[pathType.Bezier] = function (bezier: IPathBezier) {
         //TODO-BEZIER
+        return null;
     };
 
     /**

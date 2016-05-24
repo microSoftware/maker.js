@@ -200,10 +200,7 @@ namespace MakerJs.path {
     };
 
     map[pathType.Bezier][pathType.Arc] = function (bezier: IPathBezier, arc: IPathArc, options: IPathIntersectionOptions) {
-        var result = map[pathType.Arc][pathType.Bezier](arc, bezier, options);
-        if (result) {
-            return swap(result);
-        }
+        //TODO-BEZIER
         return null;
     };
 
@@ -213,18 +210,12 @@ namespace MakerJs.path {
     };
 
     map[pathType.Bezier][pathType.Circle] = function (bezier: IPathBezier, circle: IPathCircle, options: IPathIntersectionOptions) {
-        var result = map[pathType.Circle][pathType.Bezier](circle, bezier, options);
-        if (result) {
-            return swap(result);
-        }
+        //TODO-BEZIER
         return null;
     };
 
     map[pathType.Bezier][pathType.Line] = function (bezier: IPathBezier, line: IPathLine, options: IPathIntersectionOptions) {
-        var result = map[pathType.Line][pathType.Bezier](line, bezier, options);
-        if (result) {
-            return swap(result);
-        }
+        //TODO-BEZIER
         return null;
     };
 

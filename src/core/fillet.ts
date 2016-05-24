@@ -39,7 +39,7 @@ namespace MakerJs.path {
         return ['origin', 'end'];
     }
 
-    map[pathType.Bezier] = map[pathType.Line];
+    propertyNamesMap[pathType.Bezier] = propertyNamesMap[pathType.Line];
 
     /**
      * @private
@@ -162,9 +162,9 @@ namespace MakerJs.path {
         return new paths.Parallel(line, filletRadius, nearPoint);
     }
 
-    guidePathMap[pathType.Bezier] = function (bezier: IPathBezier) {
+    guidePathMap[pathType.Bezier] = function (bezier: IPathBezier, filletRadius: number, nearPoint: IPoint, shardPoint: IPoint, isStart: boolean) {
         //TODO-BEZIER
-        result = null;
+        return null;
     }
 
     /**
@@ -227,8 +227,10 @@ namespace MakerJs.path {
         return null;
     }
 
-    filletResultMap[pathType.Bezier] = function (bezier: IPathBezier) {
+    filletResultMap[pathType.Bezier] = function (bezier: IPathBezier, propertyName: string, filletRadius: number, filletCenter: IPoint) {
         //TODO-BEZIER
+
+        return null;
     }
 
     /**
