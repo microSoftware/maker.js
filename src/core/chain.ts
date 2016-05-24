@@ -155,6 +155,7 @@
                 if (
                     walkedPath.pathContext.type == pathType.Circle ||
                     (walkedPath.pathContext.type == pathType.Arc && angle.ofArcSpan(walkedPath.pathContext as IPathArc) == 360)
+                    //TODO-BEZIER
                 ) {
 
                     var chain: IChain = {
