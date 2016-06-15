@@ -12,11 +12,12 @@ namespace MakerJs.models {
         constructor(...args: any[]) {
             //TODO-BEZIER
 
-            //construct a bezier approximation for a 90 degree arc with radius of 1
-            var arc = new paths.Arc([0, 0], 1, 0, 90);
-            var bez: IPathBezier = bezier.fromArc(arc);// new paths.Bezier([1, 0], bezier.controlPointsForCircularCubic(arc), [0, 1]);
+            //construct a bezier approximation for a 90 degree arc with radius of 1.
+            //use 2 45 degree arcs for greater accuracy.
+            var arcs = [new paths.Arc([0, 0], 1, 0, 45), new paths.Arc([0, 0], 1, 45, 90)];
+            var bezs = arcs.map(bezier.fromArc);
 
-            var scaleDim = (i: number, s: number) => {
+            var scaleDim = (bez: IPathBezier, i: number, s: number) => {
                 bez.origin[i] *= s;
                 bez.end[i] *= s;
                 bez.controls[0][i] *= s;
@@ -24,8 +25,10 @@ namespace MakerJs.models {
             }
 
             var scaleXY = (x: number, y: number = x) => {
-                scaleDim(0, x);
-                scaleDim(1, y);
+                for (var i = 0; i < 2; i++) {
+                    scaleDim(bezs[i], 0, x);
+                    scaleDim(bezs[i], 1, y);
+                }
             }
 
             switch (args.length) {
@@ -59,10 +62,14 @@ namespace MakerJs.models {
                     break;
             }
 
-            this.paths['Curve1'] = bez;
-            this.paths['Curve2'] = path.mirror(bez, true, false);
-            this.paths['Curve3'] = path.mirror(bez, true, true);
-            this.paths['Curve4'] = path.mirror(bez, false, true);
+            this.paths['Curve1'] = bezs[0];
+            this.paths['Curve2'] = bezs[1];
+            this.paths['Curve3'] = path.mirror(bezs[0], true, false);
+            this.paths['Curve4'] = path.mirror(bezs[1], true, false);
+            this.paths['Curve5'] = path.mirror(bezs[0], true, true);
+            this.paths['Curve6'] = path.mirror(bezs[1], true, true);
+            this.paths['Curve7'] = path.mirror(bezs[0], false, true);
+            this.paths['Curve8'] = path.mirror(bezs[1], false, true);
         }
     }
 
