@@ -1,4 +1,17 @@
 namespace MakerJs.models {
+
+    function scaleDim(b: IPathBezier, i: number, s: number) {
+        b.origin[i] *= s;
+        b.end[i] *= s;
+        b.controls[0][i] *= s;
+        b.controls[1][i] *= s;
+    }
+
+    function scaleXY(b: IPathBezier, x: number, y: number = x) {
+        scaleDim(b, 0, x);
+        scaleDim(b, 1, y);
+    }
+
     export class Ellipse implements IModel {
 
         public paths: IPathMap = {};
@@ -10,64 +23,73 @@ namespace MakerJs.models {
         constructor(origin: IPoint, radiusX: number, radiusY: number);
         constructor(cx: number, cy: number, rx: number, ry: number);
         constructor(...args: any[]) {
-            //construct a bezier approximation for a 90 degree arc with radius of 1.
-            //use two 45 degree arcs for greater accuracy.
-            var arcs = [new paths.Arc([0, 0], 1, 0, 45), new paths.Arc([0, 0], 1, 45, 90)];
-            var bezs = arcs.map(bezier.fromArc);
 
-            var scaleDim = (bez: IPathBezier, i: number, s: number) => {
-                bez.origin[i] *= s;
-                bez.end[i] *= s;
-                bez.controls[0][i] *= s;
-                bez.controls[1][i] *= s;
-            }
+            var n = 8;
 
-            var scaleXY = (x: number, y: number = x) => {
-                for (var i = 0; i < 2; i++) {
-                    scaleDim(bezs[i], 0, x);
-                    scaleDim(bezs[i], 1, y);
-                }
-            }
+            var isPointArgs0 = isPoint(args[0]);
 
             switch (args.length) {
-                case 1:
-                    //radius
-                    scaleXY(args[0] as number);
-                    break;
-
                 case 2:
-                    if (isPoint(args[0])) {
+                    if (isPointArgs0) {
                         //origin, radius
-                        scaleXY(args[1] as number);
                         this.origin = <IPoint>args[0];
-
-                    } else {
-                        //rx, ry
-                        scaleXY(args[0] as number, args[1] as number);
                     }
                     break;
 
                 case 3:
                     //origin, rx, ry
-                    scaleXY(args[1] as number, args[2] as number);
                     this.origin = <IPoint>args[0];
                     break;
 
                 case 4:
                     //cx, cy, rx, ry
-                    scaleXY(args[2] as number, args[3] as number);
                     this.origin = [args[0] as number, args[1] as number];
                     break;
             }
 
-            this.paths['Curve1'] = bezs[0];
-            this.paths['Curve2'] = bezs[1];
-            this.paths['Curve3'] = path.mirror(bezs[0], true, false);
-            this.paths['Curve4'] = path.mirror(bezs[1], true, false);
-            this.paths['Curve5'] = path.mirror(bezs[0], true, true);
-            this.paths['Curve6'] = path.mirror(bezs[1], true, true);
-            this.paths['Curve7'] = path.mirror(bezs[0], false, true);
-            this.paths['Curve8'] = path.mirror(bezs[1], false, true);
+            //construct a bezier approximation for an arc with radius of 1.
+            var a = 360 / n;
+            var arc = new paths.Arc([0, 0], 1, 0, a);
+
+            //clone and rotate to complete a circle
+            for (var i = 0; i < n; i++) {
+
+                var bez = bezier.fromArc(arc);
+
+                switch (args.length) {
+                    case 1:
+                        //radius
+                        scaleXY(bez, args[0] as number);
+                        break;
+
+                    case 2:
+                        if (isPointArgs0) {
+                            //origin, radius
+                            scaleXY(bez, args[1] as number);
+
+                        } else {
+                            //rx, ry
+                            scaleXY(bez, args[0] as number, args[1] as number);
+                        }
+                        break;
+
+                    case 3:
+                        //origin, rx, ry
+                        scaleXY(bez, args[1] as number, args[2] as number);
+                        break;
+
+                    case 4:
+                        //cx, cy, rx, ry
+                        scaleXY(bez, args[2] as number, args[3] as number);
+                        break;
+                }
+
+                this.paths['Curve' + (1 + i)] = bez;
+
+                arc.startAngle += a;
+                arc.endAngle += a;
+            }
+
         }
     }
 
