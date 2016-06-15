@@ -33,6 +33,15 @@ namespace MakerJs.path {
                 var line = <IPathLine>pathToClone;
                 result = new paths.Line(point.clone(line.origin), point.clone(line.end));
                 break;
+
+            case pathType.Bezier:
+                var bez = <IPathBezier>pathToClone;
+                if (bez.control) {
+                    result = new paths.Bezier(point.clone(bez.origin), point.clone(bez.control), point.clone(bez.end));
+                } else {
+                    result = new paths.Bezier(point.clone(bez.origin), bez.controls.map(function (control: IPoint) { return point.clone(control); }), point.clone(bez.end));
+                }
+                break;
         }
 
         copyLayer(pathToClone, result);
