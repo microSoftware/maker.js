@@ -10,10 +10,8 @@ namespace MakerJs.models {
         constructor(origin: IPoint, radiusX: number, radiusY: number);
         constructor(cx: number, cy: number, rx: number, ry: number);
         constructor(...args: any[]) {
-            //TODO-BEZIER
-
             //construct a bezier approximation for a 90 degree arc with radius of 1.
-            //use 2 45 degree arcs for greater accuracy.
+            //use two 45 degree arcs for greater accuracy.
             var arcs = [new paths.Arc([0, 0], 1, 0, 45), new paths.Arc([0, 0], 1, 45, 90)];
             var bezs = arcs.map(bezier.fromArc);
 
