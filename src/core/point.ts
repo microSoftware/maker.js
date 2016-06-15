@@ -105,6 +105,16 @@ namespace MakerJs.point {
     }
 
     /**
+     * Convert an object with x & y properties to a MakerJs.IPoint.
+     * 
+     * @param xy The object with x and y properties.
+     * @returns IPoint object.
+     */
+    export function fromXY(xy: { x: number; y: number }): IPoint {
+        return [xy.x, xy.y];
+    }
+
+    /**
      * @private
      */
     var pathEndsMap: { [type: string]: (pathValue: IPath) => IPoint[] } = {};
@@ -116,6 +126,8 @@ namespace MakerJs.point {
     pathEndsMap[pathType.Line] = function (line: IPathLine) {
         return [line.origin, line.end];
     }
+
+    pathEndsMap[pathType.Bezier] = pathEndsMap[pathType.Line];
 
     /**
      * Get the two end points of a path.
@@ -211,9 +223,10 @@ namespace MakerJs.point {
         ];
     };
 
-    middleMap[pathType.Bezier] = function (bezier: IPathBezier) {
-        //TODO-BEZIER
-        return null;
+    middleMap[pathType.Bezier] = function (bez: IPathBezier) {
+        var b = bezier.toLib(bez);
+        var p = b.compute(0.5);
+        return fromXY(p);
     };
 
     /**

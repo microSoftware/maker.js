@@ -8,7 +8,7 @@ namespace MakerJs.path {
             pathB.layer = pathA.layer;
         }
     }
-    
+
     /**
      * Create a clone of a path. This is faster than cloneObject.
      * 
@@ -46,7 +46,6 @@ namespace MakerJs.path {
     var mirrorMap: { [pathType: string]: (pathToMirror: IPath, origin: IPoint, mirrorX: boolean, mirrorY: boolean) => IPath } = {};
 
     mirrorMap[pathType.Line] = function (line: IPathLine, origin: IPoint, mirrorX: boolean, mirrorY: boolean) {
-
         return new paths.Line(
             origin,
             point.mirror(line.end, mirrorX, mirrorY)
@@ -54,7 +53,6 @@ namespace MakerJs.path {
     };
 
     mirrorMap[pathType.Circle] = function (circle: IPathCircle, origin: IPoint, mirrorX: boolean, mirrorY: boolean) {
-
         return new paths.Circle(
             origin,
             circle.radius
@@ -62,7 +60,6 @@ namespace MakerJs.path {
     };
 
     mirrorMap[pathType.Arc] = function (arc: IPathArc, origin: IPoint, mirrorX: boolean, mirrorY: boolean) {
-
         var startAngle = angle.mirror(arc.startAngle, mirrorX, mirrorY);
         var endAngle = angle.mirror(angle.ofArcEnd(arc), mirrorX, mirrorY);
         var xor = mirrorX != mirrorY;
@@ -75,9 +72,22 @@ namespace MakerJs.path {
         );
     };
 
-    mirrorMap[pathType.Bezier] = function (bezier: IPathBezier) {
-        //TODO-BEZIER
-        return null;
+    mirrorMap[pathType.Bezier] = function (bez: IPathBezier, origin: IPoint, mirrorX: boolean, mirrorY: boolean) {
+        var points: IPoint[] = [bez.origin];
+
+        if (bez.control) {
+            points.push(bez.control);
+        } else {
+            points.push.apply(points, bez.controls);
+        }
+
+        points.push(bez.end);
+
+        var mirroredPoints = points.map(function (p: IPoint) {
+            return point.mirror(p, mirrorX, mirrorY);
+        });
+
+        return new paths.Bezier(mirroredPoints);
     };
 
     /**
@@ -86,10 +96,9 @@ namespace MakerJs.path {
      * @param pathToMirror The path to mirror.
      * @param mirrorX Boolean to mirror on the x axis.
      * @param mirrorY Boolean to mirror on the y axis.
-     * @param newId Optional id to assign to the new path.
      * @returns Mirrored path.
      */
-    export function mirror(pathToMirror: IPath, mirrorX: boolean, mirrorY: boolean, newId?: string): IPath {
+    export function mirror(pathToMirror: IPath, mirrorX: boolean, mirrorY: boolean): IPath {
         var newPath: IPath = null;
 
         if (pathToMirror) {
@@ -109,15 +118,29 @@ namespace MakerJs.path {
     /**
      * @private
      */
+    function movePoint(p: IPoint, oldOrigin: IPoint, newOrigin: IPoint): IPoint {
+        var delta = point.subtract(p, oldOrigin);
+        return point.add(newOrigin, delta);
+    };
+
+    /**
+     * @private
+     */
     var moveMap: { [pathType: string]: (pathToMove: IPath, origin: IPoint) => void } = {};
 
     moveMap[pathType.Line] = function (line: IPathLine, origin: IPoint) {
-        var delta = point.subtract(line.end, line.origin);
-        line.end = point.add(origin, delta);
+        line.end = movePoint(line.end, line.origin, origin);
     };
 
-    moveMap[pathType.Bezier] = function (bezier: IPathBezier) {
-        //TODO-BEZIER
+    moveMap[pathType.Bezier] = function (bez: IPathBezier, origin: IPoint) {
+        moveMap[pathType.Line](bez, origin);
+
+        if (bez.control) {
+            bez.control = movePoint(bez.control, bez.origin, origin);
+        } else {
+            var points = bez.controls;
+            bez.controls = points.map(function (p: IPoint) { return movePoint(p, bez.origin, origin); });
+        }
     };
 
     /**
@@ -150,8 +173,15 @@ namespace MakerJs.path {
         line.end = point.add(line.end, delta, subtract);
     };
 
-    moveRelativeMap[pathType.Bezier] = function (bezier: IPathBezier) {
-        //TODO-BEZIER
+    moveRelativeMap[pathType.Bezier] = function (bez: IPathBezier, delta: IPoint, subtract: boolean) {
+        moveRelativeMap[pathType.Line](bez, delta, subtract);
+
+        if (bez.control) {
+            bez.control = point.add(bez.control, delta, subtract);
+        } else {
+            var points = bez.controls;
+            bez.controls = points.map(function (p: IPoint) { return point.add(p, delta, subtract); });
+        }
     };
 
     /**
@@ -214,6 +244,17 @@ namespace MakerJs.path {
         arc.endAngle = angle.noRevolutions(arc.endAngle + angleInDegrees);
     }
 
+    rotateMap[pathType.Bezier] = function (bez: IPathBezier, angleInDegrees: number, rotationOrigin: IPoint) {
+        rotateMap[pathType.Line](bez, angleInDegrees, rotationOrigin);
+
+        if (bez.control) {
+            bez.control = point.rotate(bez.control, angleInDegrees, rotationOrigin);
+        } else {
+            var points = bez.controls;
+            bez.controls = points.map(function (p: IPoint) { return point.rotate(p, angleInDegrees, rotationOrigin); });
+        }
+    }
+
     /**
      * Rotate a path.
      * 
@@ -250,8 +291,14 @@ namespace MakerJs.path {
 
     scaleMap[pathType.Arc] = scaleMap[pathType.Circle];
 
-    scaleMap[pathType.Bezier] = function (bezier: IPathBezier) {
-        //TODO-BEZIER
+    scaleMap[pathType.Bezier] = function (bez: IPathBezier, scaleValue: number) {
+        scaleMap[pathType.Line](bez, scaleValue);
+        if (bez.control) {
+            bez.control = point.scale(bez.control, scaleValue);
+        } else {
+            var points = bez.controls;
+            bez.controls = points.map(function (p: IPoint) { return point.scale(p, scaleValue); });
+        }
     };
 
     /**

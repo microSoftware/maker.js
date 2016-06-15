@@ -151,11 +151,11 @@
 
                 var connections = connectionMap[layer];
 
-                //circles are loops by nature
+                //find paths which loop itself
                 if (
-                    walkedPath.pathContext.type == pathType.Circle ||
-                    (walkedPath.pathContext.type == pathType.Arc && angle.ofArcSpan(walkedPath.pathContext as IPathArc) == 360)
-                    //TODO-BEZIER
+                    walkedPath.pathContext.type === pathType.Circle ||
+                    (walkedPath.pathContext.type === pathType.Arc && round(angle.ofArcSpan(walkedPath.pathContext as IPathArc) - 360) === 0) ||
+                    (walkedPath.pathContext.type === pathType.Bezier && measure.isPointEqual(walkedPath.pathContext.origin, (walkedPath.pathContext as IPathBezier).end))
                 ) {
 
                     var chain: IChain = {

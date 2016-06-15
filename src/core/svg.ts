@@ -39,6 +39,10 @@ namespace MakerJs.exporter {
         d.push('L', round(endPoint[0]), round(endPoint[1]));
     };
 
+    chainLinkToPathDataMap[pathType.Bezier] = function (bez: IPathBezier, endPoint: IPoint, reversed: boolean, d: ISvgPathData) {
+        svgBezierData(d, bez, reversed);
+    };
+
     /**
      * @private
      */
@@ -130,6 +134,12 @@ namespace MakerJs.exporter {
 
             return startSvgPathData(arcPoints[0], d);
         }
+    };
+
+    svgPathDataMap[pathType.Bezier] = function (bez: IPathBezier) {
+        var d: ISvgPathData = [];
+        svgBezierData(d, bez);
+        return startSvgPathData(bez.origin, d);
     };
 
     /**
@@ -451,8 +461,14 @@ namespace MakerJs.exporter {
                 }
             };
 
-            map[pathType.Bezier] = function (id: string, bezier: IPathBezier, origin: IPoint, layer: string) {
-                //TODO-BEZIER
+            map[pathType.Bezier] = function (id: string, bez: IPathBezier, origin: IPoint, layer: string) {
+
+                var start = bez.origin;
+                var end = bez.end;
+
+                var d: ISvgPathData = [];
+                svgBezierData(d, bez);
+                drawPath(id, bez.origin[0], bez.origin[1], d, layer, point.middle(bez));
             };
 
 
@@ -507,6 +523,20 @@ namespace MakerJs.exporter {
         d.push('z');
 
         return d;
+    }
+
+    /**
+     * @private
+     */
+    function svgBezierData(d: ISvgPathData, bez: IPathBezier, reversed?: boolean) {
+        if (bez.control) {
+            d.push('Q', round(bez.control[0]), round(bez.control[1]));
+        } else {
+            var controls = reversed ? [bez.controls[1], bez.controls[0]] : bez.controls;
+            d.push('C', round(controls[0][0]), round(controls[0][1]), round(controls[1][0]), round(controls[1][1]));
+        }
+        var final = reversed ? bez.origin : bez.end;
+        d.push(round(final[0]), round(final[1]));
     }
 
     /**

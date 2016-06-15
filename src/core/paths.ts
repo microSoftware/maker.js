@@ -1,5 +1,5 @@
 namespace MakerJs.paths {
-    
+
     /**
      * @private
      */
@@ -264,9 +264,40 @@ namespace MakerJs.paths {
      */
     export class Bezier implements IPathBezier {
         public type: string;
+        public origin: IPoint;
+        public end: IPoint;
+        public control: IPoint;
+        public controls: IPoint[];
 
-        constructor(public origin: IPoint, public end: IPoint, public controls: IPoint[]) {
+        constructor(points: IPoint[]);
+        constructor(origin: IPoint, control: IPoint, end: IPoint);
+        constructor(origin: IPoint, controls: IPoint[], end: IPoint);
+        constructor(origin: IPoint, control1: IPoint, control2: IPoint, end: IPoint);
+        constructor(...args: any[]) {
             this.type = pathType.Bezier;
+
+            if (args.length === 1) {
+                args = args[0];
+            }
+
+            this.origin = args[0];
+            this.end = args[args.length - 1];
+
+            switch (args.length) {
+
+                case 3:
+                    if (isPoint(args[1])) {
+                        this.control = args[1];
+                    } else {
+                        this.controls = args[1];
+                    }
+                    break;
+
+                case 4:
+                    this.controls = [args[1], args[2]];
+                    break;
+            }
+
         }
     }
 

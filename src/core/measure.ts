@@ -238,14 +238,14 @@ namespace MakerJs.measure {
      */
     var pathExtentsMap: { [pathType: string]: (pathToMeasure: IPath) => IMeasure } = {};
 
-    pathExtentsMap[pathType.Line] = function (line: IPathLine) {
+    pathExtentsMap[pathType.Line] = function (line: IPathLine): IMeasure {
         return {
             low: getExtremePoint(line.origin, line.end, Math.min),
             high: getExtremePoint(line.origin, line.end, Math.max)
         }
     }
 
-    pathExtentsMap[pathType.Circle] = function (circle: IPathCircle) {
+    pathExtentsMap[pathType.Circle] = function (circle: IPathCircle): IMeasure {
         var r = circle.radius;
         return {
             low: point.add(circle.origin, [-r, -r]),
@@ -253,7 +253,7 @@ namespace MakerJs.measure {
         }
     }
 
-    pathExtentsMap[pathType.Arc] = function (arc: IPathArc) {
+    pathExtentsMap[pathType.Arc] = function (arc: IPathArc): IMeasure {
         var r = arc.radius;
         var arcPoints = point.fromArc(arc);
 
@@ -275,9 +275,13 @@ namespace MakerJs.measure {
         }
     }
 
-    pathExtentsMap[pathType.Bezier] = function (bezier: IPathBezier) {
-        //TODO-BEZIER
-        return null;
+    pathExtentsMap[pathType.Bezier] = function (bez: IPathBezier): IMeasure {
+        var b = bezier.toLib(bez);
+        var bbox = b.bbox();
+        return {
+            low: [bbox.x.min, bbox.y.min],
+            high: [bbox.x.max, bbox.y.max]
+        };
     }
 
     /**
@@ -325,10 +329,10 @@ namespace MakerJs.measure {
         return value;
     }
 
-    pathLengthMap[pathType.Bezier] = function (bezier: IPathBezier) {
-        //TODO-BEZIER
-        return null;
-    } 
+    pathLengthMap[pathType.Bezier] = function (bez: IPathBezier) {
+        var b = bezier.toLib(bez);
+        return b.length();
+    }
 
     /**
      * Measures the length of a path.

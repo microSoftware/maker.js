@@ -228,16 +228,21 @@ namespace MakerJs {
      * 
      * Examples:
      * ```
-     * var bezier: IPathBezier = { type: 'bezier', origin: [0, 0], end: [1, 1], controls: [[1, 0]] };   //typescript
-     * var bezier = { type: 'bezier', origin: [0, 0], end: [1, 1], controls: [[1, 0]] };   //javascript
+     * var bezier: IPathBezier = { type: 'bezier', origin: [0, 0], end: [1, 1], control: [1, 0] };   //typescript
+     * var bezier = { type: 'bezier', origin: [0, 0], end: [1, 1], control: [1, 0] };   //javascript
      * ```
      */
     export interface IPathBezier extends IPathLine {
-        
+
         /**
-         * The control points array defining the curve. The array length should be 1 for quadratic or 2 for cubic curves.
+         * The control point defining a quadratic curve.
          */
-        controls: IPoint[];
+        control?: IPoint;
+
+        /**
+         * The control points array defining a cubic curve.
+         */
+        controls?: IPoint[];
     }
 
     /**
@@ -777,6 +782,11 @@ namespace MakerJs {
          */
         notes?: string;
     }
+
+    /**
+     * BezierJs library
+     */
+    export var Bezier: typeof BezierJs.Bezier = require('bezier-js');
 
 }
 
