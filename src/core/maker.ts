@@ -430,6 +430,20 @@ namespace MakerJs {
          * The length of the array may be either 1 or 2.
          */
         path2Angles?: number[];
+
+        /**
+         * This Array property will only be defined if the first parameter passed to pathIntersection is either a Bezier.
+         * It contains the t values of intersection relative to the first path parameter. 
+         * The length of the array may be up to 6.
+         */
+        path1BezierTs?: number[];
+
+        /**
+         * This Array property will only be defined if the first parameter passed to pathIntersection is either a Bezier.
+         * It contains the t values of intersection relative to the first path parameter. 
+         * The length of the array may be up to 6.
+         */
+        path2BezierTs?: number[];
     }
 
     /**
