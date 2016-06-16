@@ -45,9 +45,26 @@ namespace MakerJs.path {
         return result;
     };
 
-    map[pathType.Arc][pathType.Bezier] = function (arc: IPathArc, bezier: IPathBezier, options: IPathIntersectionOptions) {
-        //TODO-BEZIER
-        return null;
+    map[pathType.Arc][pathType.Bezier] = function (arc: IPathArc, bez: IPathBezier, options: IPathIntersectionOptions, swapOffsets: boolean) {
+        var result: IPathIntersection = null;
+
+        moveTemp([arc, bez], options, swapOffsets, function () {
+
+            var values = bezierToCircle(bez, arc);
+            if (values) {
+                var arcAngles = getAnglesWithinArc(values[1], arc, options);
+                if (arcAngles) {
+
+                    result = {
+                        intersectionPoints: pointsFromAnglesOnCircle(arcAngles, arc),
+                        path1Angles: arcAngles,
+                        path2BezierTs: values[0]
+                    };
+                }
+            }
+        });
+
+        return result;
     };
 
     map[pathType.Arc][pathType.Circle] = function (arc: IPathArc, circle: IPathArc, options: IPathIntersectionOptions, swapOffsets: boolean) {
@@ -110,9 +127,23 @@ namespace MakerJs.path {
         return null;
     };
 
-    map[pathType.Circle][pathType.Bezier] = function (circle: IPathCircle, bezier: IPathBezier, options: IPathIntersectionOptions) {
-        //TODO-BEZIER
-        return null;
+    map[pathType.Circle][pathType.Bezier] = function (circle: IPathCircle, bez: IPathBezier, options: IPathIntersectionOptions, swapOffsets: boolean) {
+        var result: IPathIntersection = null;
+
+        moveTemp([circle, bez], options, swapOffsets, function () {
+
+            var values = bezierToCircle(bez, circle);
+            if (values) {
+
+                result = {
+                    intersectionPoints: pointsFromAnglesOnCircle(values[1], circle),
+                    path1Angles: values[1],
+                    path2BezierTs: values[0]
+                };
+            }
+        });
+
+        return result;
     };
 
     map[pathType.Circle][pathType.Circle] = function (circle1: IPathCircle, circle2: IPathCircle, options: IPathIntersectionOptions, swapOffsets: boolean) {
@@ -158,9 +189,23 @@ namespace MakerJs.path {
         return null;
     };
 
-    map[pathType.Line][pathType.Bezier] = function (line: IPathLine, bezier: IPathBezier, options: IPathIntersectionOptions) {
-        //TODO-BEZIER
-        return null;
+    map[pathType.Line][pathType.Bezier] = function (line: IPathLine, bez: IPathBezier, options: IPathIntersectionOptions, swapOffsets: boolean) {
+        var result: IPathIntersection = null;
+
+        moveTemp([line, bez], options, swapOffsets, function () {
+
+            var b = bezier.toLib(bez);
+            var values = b.intersects(bezier.toLibLine(line)) as number[];
+            if (values) {
+
+                result = {
+                    intersectionPoints: bezier.bezierIntersectionPoints(b,  values),
+                    path2BezierTs: values
+                };
+            }
+        });
+
+        return result;
     };
 
     map[pathType.Line][pathType.Circle] = function (line: IPathLine, circle: IPathCircle, options: IPathIntersectionOptions) {
@@ -191,32 +236,76 @@ namespace MakerJs.path {
         return result;
     };
 
+    map[pathType.Bezier][pathType.Arc] = function (bez: IPathBezier, arc: IPathArc, options: IPathIntersectionOptions) {
+        var result = map[pathType.Arc][pathType.Bezier](arc, bez, options, true);
+        if (result) {
+            result.path1BezierTs = result.path2BezierTs;
+            result.path2Angles = result.path1Angles;
+            delete result.path2BezierTs;
+            delete result.path1Angles;
+            return result;
+        }
+        return null;
+    };
+
+    map[pathType.Bezier][pathType.Bezier] = function (bez1: IPathBezier, bez2: IPathBezier, options: IPathIntersectionOptions, swapOffsets: boolean) {
+        var result: IPathIntersection = null;
+
+        moveTemp([bez1, bez2], options, swapOffsets, function () {
+
+            var b1 = bezier.toLib(bez1);
+            var b2 = bezier.toLib(bez2);
+            var x = bezier.bezierToBezier(b1, b2);
+
+            if (x.length > 0) {
+
+                var a1: number[] = [];
+                var a2: number[] = [];
+
+                x.map(function (row: number[]) {
+                    a1.push(row[0]);
+                    a2.push(row[1]);
+                });
+
+                result = {
+                    intersectionPoints: bezier.bezierIntersectionPoints(b1, a1),
+                    path1BezierTs: a1,
+                    path2BezierTs: a2
+                };
+            }
+        });
+
+        return result;
+    };
+
+    map[pathType.Bezier][pathType.Circle] = function (bez: IPathBezier, circle: IPathCircle, options: IPathIntersectionOptions) {
+        var result = map[pathType.Circle][pathType.Bezier](circle, bez, options, true);
+        if (result) {
+            result.path1BezierTs = result.path2BezierTs;
+            result.path2Angles = result.path1Angles;
+            delete result.path2BezierTs;
+            delete result.path1Angles;
+            return result;
+        }
+        return null;
+    };
+
+    map[pathType.Bezier][pathType.Line] = function (bez: IPathBezier, line: IPathLine, options: IPathIntersectionOptions) {
+        var result = map[pathType.Line][pathType.Bezier](line, bez, options, true);
+        if (result) {
+            result.path1BezierTs = result.path2BezierTs;
+            delete result.path2BezierTs;
+            return result;
+        }
+        return null;
+    };
+
     /**
      * @private
      */
     function moveTemp(pathsToOffset: IPath[], options: IPathIntersectionOptions, swapOffsets: boolean, task: Function) {
         var offsets = swapOffsets ? [options.path2Offset, options.path1Offset] : [options.path1Offset, options.path2Offset];
         moveTemporary(pathsToOffset, offsets, task);
-    };
-
-    map[pathType.Bezier][pathType.Arc] = function (bezier: IPathBezier, arc: IPathArc, options: IPathIntersectionOptions) {
-        //TODO-BEZIER
-        return null;
-    };
-
-    map[pathType.Bezier][pathType.Bezier] = function (bezier1: IPathBezier, bezier2: IPathBezier, options: IPathIntersectionOptions) {
-        //TODO-BEZIER
-        return null;
-    };
-
-    map[pathType.Bezier][pathType.Circle] = function (bezier: IPathBezier, circle: IPathCircle, options: IPathIntersectionOptions) {
-        //TODO-BEZIER
-        return null;
-    };
-
-    map[pathType.Bezier][pathType.Line] = function (bezier: IPathBezier, line: IPathLine, options: IPathIntersectionOptions) {
-        //TODO-BEZIER
-        return null;
     };
 
     /**
@@ -443,4 +532,74 @@ namespace MakerJs.path {
 
         return [bothAngles(c1IntersectionAngle), bothAngles(180 - c2IntersectionAngle)];
     }
+
+    /**
+     * @private
+     */
+    function bezierToCircle(bez: IPathBezier, circle: IPathCircle): number[][] {
+
+        var ret: number[][] = [];
+
+        function dupe(value: number) {
+            for (var i = 0; i < ret.length; i++) {
+                var row = ret[i];
+                if (row[0] === value) return true;
+            }
+            return false;
+        }
+
+        var bezMeasure = measure.pathExtents(bez);
+
+        var n = 8;
+        var a = 360 / n;
+        var arc = new paths.Arc(circle.origin, circle.radius, 0, a);
+
+        for (var i = 0; i < n; i++) {
+
+            //check recangular overlap
+            var curveMeasure = measure.pathExtents(arc);
+            if (measure.isMeasurementOverlapping(bezMeasure, curveMeasure)) {
+
+                var curve = bezier.fromArc(arc);
+
+                //now do a bez-bez intersection
+                var results = bezToBez(bez, curve);
+
+                if (results && results.length > 0) {
+                    results.map(function (row: number[]) {
+
+                        var tOfBez = row[0];
+                        var tOfCurve = row[1];
+
+                        //convert T to angle on circle
+                        var startAngle = a * i;
+                        var angleOnCircle = a * tOfCurve + startAngle;
+
+                        //look for duplicates
+                        if (!dupe(tOfBez)) {
+
+                            //the t value and the angle
+                            ret.push([tOfBez, angleOnCircle]);
+                        }
+
+                    });
+                }
+
+                arc.startAngle += a;
+                arc.endAngle += a;
+            }
+        }
+
+        return ret;
+    }
+
+    /**
+     * @private
+     */
+    function bezToBez(bez1: IPathBezier, bez2: IPathBezier): number[][] {
+        var b1 = bezier.toLib(bez1);
+        var b2 = bezier.toLib(bez2);
+        return bezier.bezierToBezier(b1, b2);
+    }
+
 }
