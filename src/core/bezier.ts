@@ -34,6 +34,33 @@
         return new paths.Arc([a.x, a.y], a.r, a.s, a.e);
     }
 
+    export function toLibLine(line: IPathLine): BezierJs.Line {
+        return { p1: point.toXY(line.origin), p2: point.toXY(line.end) };
+    }
+
+    export function bezierIntersectionPoints(b: BezierJs.Bezier, values: number[]): IPoint[] {
+
+        function pointOnCurve(t: number): IPoint {
+            return point.fromXY(b.compute(t));
+        }
+
+        return values.map(pointOnCurve);
+    }
+
+    export function bezierToBezier(b1: BezierJs.Bezier, b2: BezierJs.Bezier): number[][] {
+        var result: number[][] = [];
+        var x = b1.intersects(b2) as string[];
+        x.map(function (ff: string) {
+            var ss = ff.split('/');
+            var row: number[] = [];
+            ss.map(function (sf: string) {
+                row.push(parseFloat(sf));
+            });
+            result.push(row);
+        });
+        return result;
+    }
+
     var cache: { [arcSpan: number]: number } = {};
 
     export function controlYForCircularCubic(arcSpanInRadians: number): number {
