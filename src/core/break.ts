@@ -4,7 +4,7 @@
      * @private
      */
     interface IBreakPathFunctionMap {
-        [type: string]: (path: IPath, pointOfBreak: IPoint) => IPath;
+        [type: string]: (path: IPath, pointOfBreak: IPoint, angleOfBreak?: number, tOfBreak?: number) => IPath;
     }
 
     /**
@@ -12,9 +12,9 @@
      */
     var breakPathFunctionMap: IBreakPathFunctionMap = {};
 
-    breakPathFunctionMap[pathType.Arc] = function (arc: IPathArc, pointOfBreak: IPoint): IPath {
+    breakPathFunctionMap[pathType.Arc] = function (arc: IPathArc, pointOfBreak: IPoint, angleOfBreak?: number, tOfBreak?: number): IPath {
 
-        var angleAtBreakPoint = angle.ofPointInDegrees(arc.origin, pointOfBreak);
+        var angleAtBreakPoint = angleOfBreak || angle.ofPointInDegrees(arc.origin, pointOfBreak);
 
         if (measure.isAngleEqual(angleAtBreakPoint, arc.startAngle) || measure.isAngleEqual(angleAtBreakPoint, arc.endAngle)) {
             return null;
@@ -35,7 +35,7 @@
         }
 
         var angleAtBreakPointBetween = getAngleStrictlyBetweenArcAngles();
-        if (angleAtBreakPointBetween == null) {
+        if (angleAtBreakPointBetween === null) {
             return null;
         }
 
@@ -46,7 +46,7 @@
         return new paths.Arc(arc.origin, arc.radius, angleAtBreakPointBetween, savedEndAngle);
     };
 
-    breakPathFunctionMap[pathType.Circle] = function (circle: IPathCircle, pointOfBreak: IPoint): IPath {
+    breakPathFunctionMap[pathType.Circle] = function (circle: IPathCircle, pointOfBreak: IPoint, angleOfBreak?: number, tOfBreak?: number): IPath {
         circle.type = pathType.Arc;
 
         var arc: IPathArc = <IPathArc>circle;
@@ -59,7 +59,7 @@
         return null;
     };
 
-    breakPathFunctionMap[pathType.Line] = function (line: IPathLine, pointOfBreak: IPoint): IPath {
+    breakPathFunctionMap[pathType.Line] = function (line: IPathLine, pointOfBreak: IPoint, angleOfBreak?: number, tOfBreak?: number): IPath {
 
         if (!measure.isBetweenPoints(pointOfBreak, line, true)) {
             return null;
@@ -72,10 +72,13 @@
         return new paths.Line(pointOfBreak, savedEndPoint);
     };
 
-    breakPathFunctionMap[pathType.Bezier] = function (bezier: IPathBezier, pointOfBreak: IPoint): IPath {
-        
-        //TODO-BEZIER
-        return null;
+    breakPathFunctionMap[pathType.Bezier] = function (bez: IPathBezier, pointOfBreak: IPoint, angleOfBreak?: number, tOfBreak?: number): IPath {
+        //TEST-BEZIER
+        var b = bezier.toLib(bez);
+        var split = b.split(tOfBreak);
+        var update = bezier.fromLib(split.left);
+        extendObject(bez, update);
+        return bezier.fromLib(split.right);
     };
 
     /**
@@ -87,11 +90,11 @@
      * @param pointOfBreak The point at which to break the path.
      * @returns A new path of the same type, when path type is line or arc. Returns null for circle.
      */
-    export function breakAtPoint(pathToBreak: IPath, pointOfBreak: IPoint): IPath {
+    export function breakAtPoint(pathToBreak: IPath, pointOfBreak: IPoint, angleOfBreak?: number, tOfBreak?: number): IPath {
         if (pathToBreak && pointOfBreak) {
             var fn = breakPathFunctionMap[pathToBreak.type];
             if (fn) {
-                var result = fn(pathToBreak, pointOfBreak);
+                var result = fn(pathToBreak, pointOfBreak, angleOfBreak, tOfBreak);
 
                 if (result && ('layer' in pathToBreak)) {
                     result.layer = pathToBreak.layer;

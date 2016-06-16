@@ -3,12 +3,14 @@
     /**
      * @private
      */
-    function getNonZeroSegments(pathToSegment: IPath, breakPoint: IPoint): IPath[] {
+    function getNonZeroSegments(pathToSegment: IPath, breakPoint: IBreakPoint, offset: IPoint): IPath[] {
         var segment1 = path.clone(pathToSegment);
 
         if (!segment1) return null;
 
-        var segment2 = path.breakAtPoint(segment1, breakPoint);
+        var p = point.subtract(breakPoint.breakPoint, offset);
+
+        var segment2 = path.breakAtPoint(segment1, p, breakPoint.breakAngle, breakPoint.breakT);
 
         if (segment2) {
             var segments: IPath[] = [segment1, segment2];
@@ -29,6 +31,75 @@
     /**
      * @private
      */
+    interface IBreakPoint {
+        breakPoint: IPoint;
+        breakAngle: number;
+        breakT: number;
+    }
+
+    /**
+     * @private
+     */
+    function intersectionToBreakPoints(path1Type: string, intersection: IPathIntersection): IBreakPoint[] {
+
+        function intersectionPointToBreakPoint(p: IPoint, i: number): IBreakPoint {
+
+            switch (path1Type) {
+                case pathType.Arc:
+                case pathType.Circle:
+                    return { breakPoint: p, breakAngle: intersection.path1Angles[i], breakT: null };
+
+                case pathType.Bezier:
+                    return { breakPoint: p, breakAngle: null, breakT: intersection.path1BezierTs[i] };
+
+                case pathType.Line:
+                default:
+                    return { breakPoint: p, breakAngle: null, breakT: null };
+            }
+
+        }
+
+        return intersection.intersectionPoints.map(intersectionPointToBreakPoint);
+    }
+
+    /**
+     * @private
+     */
+    function breakPointFromEnds(pathContext: IPath, offset: IPoint): IBreakPoint[] {
+
+        //make sure endpoints are in absolute coords
+        var ends = point.fromPathEnds(pathContext, offset);
+
+        if (ends) {
+            switch (pathContext.type) {
+
+                case pathType.Arc:
+                    var arc = pathContext as IPathArc;
+                    return [
+                        { breakPoint: ends[0], breakAngle: arc.startAngle, breakT: null },
+                        { breakPoint: ends[1], breakAngle: arc.endAngle, breakT: null }
+                    ];
+
+                case pathType.Bezier:
+                    return [
+                        { breakPoint: ends[0], breakAngle: null, breakT: 0 },
+                        { breakPoint: ends[1], breakAngle: null, breakT: 1 }
+                    ];
+
+                case pathType.Line:
+                    return [
+                        { breakPoint: ends[0], breakAngle: null, breakT: null },
+                        { breakPoint: ends[1], breakAngle: null, breakT: null }
+                    ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @private
+     */
     function breakAlongForeignPath(crossedPath: ICrossedPath, overlappedSegments: ICrossedPathSegment[], foreignWalkedPath: IWalkPath) {
         var foreignPath = foreignWalkedPath.pathContext;
         var segments = crossedPath.segments;
@@ -41,16 +112,16 @@
             return;
         }
 
-        var foreignPathEndPoints: IPoint[];
+        var foreignPathEndPoints: IBreakPoint[];
 
         for (var i = 0; i < segments.length; i++) {
 
-            var pointsToCheck: IPoint[];
+            var pointsToCheck: IBreakPoint[];
             var options: IPathIntersectionOptions = { path1Offset: crossedPath.offset, path2Offset: foreignWalkedPath.offset };
             var foreignIntersection = path.intersection(segments[i].path, foreignPath, options);
 
             if (foreignIntersection) {
-                pointsToCheck = foreignIntersection.intersectionPoints;
+                pointsToCheck = intersectionToBreakPoints(segments[i].path.type, foreignIntersection);
 
             } else if (options.out_AreOverlapped) {
                 segments[i].overlapped = true;
@@ -58,8 +129,7 @@
                 overlappedSegments.push(segments[i]);
 
                 if (!foreignPathEndPoints) {
-                    //make sure endpoints are in absolute coords
-                    foreignPathEndPoints = point.fromPathEnds(foreignPath, crossedPath.offset);
+                    foreignPathEndPoints = breakPointFromEnds(foreignPath, crossedPath.offset);
                 }
 
                 pointsToCheck = foreignPathEndPoints;
@@ -72,7 +142,7 @@
                 var p = 0;
                 while (!subSegments && p < pointsToCheck.length) {
                     //cast absolute points to path relative space
-                    subSegments = getNonZeroSegments(segments[i].path, point.subtract(pointsToCheck[p], crossedPath.offset));
+                    subSegments = getNonZeroSegments(segments[i].path, pointsToCheck[p], crossedPath.offset);
                     p++;
                 }
 
