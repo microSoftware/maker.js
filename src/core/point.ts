@@ -107,11 +107,21 @@ namespace MakerJs.point {
     /**
      * Convert an object with x & y properties to a MakerJs.IPoint.
      * 
-     * @param xy The object with x and y properties.
+     * @param xy The object with x & y properties.
      * @returns IPoint object.
      */
     export function fromXY(xy: { x: number; y: number }): IPoint {
         return [xy.x, xy.y];
+    }
+
+    /**
+     * Convert a MakerJs.IPoint to an object with x & y properties.
+     * 
+     * @param p IPoint to convert.
+     * @returns Object with x & y properties.
+     */
+    export function toXY(p: IPoint) {
+        return { x: p[0], y: p[1] };
     }
 
     /**
