@@ -17,6 +17,16 @@
         return new models.Slot(line.origin, line.end, expansion, isolateCaps);
     }
 
+    map[pathType.Bezier] = function (bez: IPathLine, expansion: number, isolateCaps: boolean) {
+        var expanded: IModel;
+
+        moveTemporary([bez], [[-bez.origin[0], -bez.origin[1]]], function () { 
+            expanded = bezier.expand(bez, expansion, isolateCaps);
+        });
+
+        return expanded;
+    }
+
     /**
      * Expand path by creating a model which surrounds it.
      *

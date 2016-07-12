@@ -27,17 +27,32 @@
     var pathAreEqualMap: IPathAreEqualMap = {};
 
     pathAreEqualMap[pathType.Line] = function (lineA: IPathLine, lineB: IPathLine, withinPointDistance?: number): boolean {
-        return (isPointEqual(lineA.origin, lineB.origin, withinPointDistance) && isPointEqual(lineA.end, lineB.end, withinPointDistance))
-            || (isPointEqual(lineA.origin, lineB.end, withinPointDistance) && isPointEqual(lineA.end, lineB.origin, withinPointDistance));
+        var points = [lineA.origin, lineA.end];
+        return (isPointArrayEqual(points, [lineB.origin, lineB.end], withinPointDistance))
+            || (isPointArrayEqual(points, [lineB.end, lineB.origin], withinPointDistance));
     };
 
     pathAreEqualMap[pathType.Circle] = function (circleA: IPathCircle, circleB: IPathCircle, withinPointDistance): boolean {
         return isPointEqual(circleA.origin, circleB.origin, withinPointDistance) && circleA.radius == circleB.radius;
     };
 
-    pathAreEqualMap[pathType.Bezier] = function (bezier1: IPathBezier, bezier2: IPathBezier, withinPointDistance): boolean {
-        //TODO-BEZIER
-        return null;
+    pathAreEqualMap[pathType.Bezier] = function (bez1: IPathBezier, bez2: IPathBezier, withinPointDistance): boolean {
+
+        //single control point (quadratic)
+        if (bez1.control && bez2.control) {
+            var q1points = [bez1.origin, bez1.end, bez1.control];
+            return (isPointArrayEqual(q1points, [bez2.origin, bez2.end, bez2.control], withinPointDistance))
+                || (isPointArrayEqual(q1points, [bez2.end, bez2.origin, bez2.control], withinPointDistance));
+        }
+
+        //two control points (cubic)
+        if (bez1.controls && bez2.controls) {
+            var c1points = [bez1.origin, bez1.end, bez1.controls[0], bez1.controls[1]];
+            return (isPointArrayEqual(c1points, [bez2.origin, bez2.end, bez2.controls[0], bez2.controls[1]], withinPointDistance))
+                || (isPointArrayEqual(c1points, [bez2.end, bez2.origin, bez2.controls[1], bez2.controls[0]], withinPointDistance));
+        }
+
+        return false;
     };
 
     pathAreEqualMap[pathType.Arc] = function (arcA: IPathArc, arcB: IPathArc, withinPointDistance): boolean {
@@ -85,9 +100,29 @@
         if (!withinDistance) {
             return a[0] == b[0] && a[1] == b[1];
         } else {
+            if (!a || !b) return false;
             var distance = measure.pointDistance(a, b);
             return distance <= withinDistance;
         }
+    }
+
+    /**
+     * Find out if two arrays or points are equal.
+     * 
+     * @param a First array of points.
+     * @param b Second array of points.
+     * @returns true if array of points are the same, false if they are not
+     */
+    export function isPointArrayEqual(a: IPoint[], b: IPoint[], withinDistance?: number): boolean {
+        if (a.length !== b.length) {
+            return false;
+        }
+
+        for (var i = 0; i < a.length; i++) {
+            if (!isPointEqual(a[i], b[i], withinDistance)) return false;
+        }
+
+        return true;
     }
 
     /**

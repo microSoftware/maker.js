@@ -85,8 +85,13 @@ namespace MakerJs.exporter {
             append(arc.endAngle);
         };
 
-        map[pathType.Bezier] = function (id: string, bezier: IPathBezier, origin: IPoint, layer: string) {
-            //TODO-BEZIER
+        map[pathType.Bezier] = function (id: string, bez: IPathBezier, origin: IPoint, layer: string) {
+            //TEST-BEZIER
+            var arcs = bezier.toArcs(bez);
+            for (var i = 0; i < arcs.length; i++) {
+                var arc = arcs[i];
+                map[pathType.Arc](id + '_' + i, arc, origin, layer);
+            }
         };
 
         function section(sectionFn: () => void) {

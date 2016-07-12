@@ -234,9 +234,7 @@ namespace MakerJs.point {
     };
 
     middleMap[pathType.Bezier] = function (bez: IPathBezier) {
-        var b = bezier.toLib(bez);
-        var p = b.compute(0.5);
-        return fromXY(p);
+        return bezier.tValueToPoint(bez, 0.5);
     };
 
     /**

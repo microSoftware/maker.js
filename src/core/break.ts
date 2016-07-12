@@ -73,12 +73,7 @@
     };
 
     breakPathFunctionMap[pathType.Bezier] = function (bez: IPathBezier, pointOfBreak: IPoint, angleOfBreak?: number, tOfBreak?: number): IPath {
-        //TEST-BEZIER
-        var b = bezier.toLib(bez);
-        var split = b.split(tOfBreak);
-        var update = bezier.fromLib(split.left);
-        extendObject(bez, update);
-        return bezier.fromLib(split.right);
+        return bezier.breakAt(bez, tOfBreak);
     };
 
     /**

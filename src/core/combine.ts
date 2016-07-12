@@ -15,8 +15,13 @@
         if (segment2) {
             var segments: IPath[] = [segment1, segment2];
             for (var i = 2; i--;) {
-                if (round(measure.pathLength(segments[i]), .0001) == 0) {
+                var pathLength = measure.pathLength(segments[i]);
+                if (round(pathLength, .0001) === 0) {
                     return null;
+                } else if (round(pathLength, .01) === 0 && pathToSegment.type == pathType.Bezier) {
+                    //need to look at control points
+                    var z = 0;
+                    segments[i].type = pathType.Line;
                 }
             }
             return segments;
@@ -35,28 +40,47 @@
         breakPoint: IPoint;
         breakAngle: number;
         breakT: number;
+        foreignBreakPoint?: IPoint;
+        foreignBreakAngle?: number;
+        foreignBreakT?: number;
     }
 
     /**
      * @private
      */
-    function intersectionToBreakPoints(path1Type: string, intersection: IPathIntersection): IBreakPoint[] {
+    function intersectionToBreakPoints(path1Type: string, path2Type: string, intersection: IPathIntersection): IBreakPoint[] {
 
         function intersectionPointToBreakPoint(p: IPoint, i: number): IBreakPoint {
+
+            var result: IBreakPoint;
 
             switch (path1Type) {
                 case pathType.Arc:
                 case pathType.Circle:
-                    return { breakPoint: p, breakAngle: intersection.path1Angles[i], breakT: null };
+                    result = { breakPoint: p, breakAngle: intersection.path1Angles[i], breakT: null };
+                    break;
 
                 case pathType.Bezier:
-                    return { breakPoint: p, breakAngle: null, breakT: intersection.path1BezierTs[i] };
+                    result = { breakPoint: p, breakAngle: null, breakT: intersection.path1BezierTs[i] };
+                    break;
 
                 case pathType.Line:
                 default:
-                    return { breakPoint: p, breakAngle: null, breakT: null };
+                    result = { breakPoint: p, breakAngle: null, breakT: null };
             }
 
+            switch (path2Type) {
+                case pathType.Arc:
+                case pathType.Circle:
+                    result.foreignBreakAngle = intersection.path2Angles[i];
+                    break;
+
+                case pathType.Bezier:
+                    result.foreignBreakT = intersection.path2BezierTs[i];
+                    break;
+            }
+
+            return result;
         }
 
         return intersection.intersectionPoints.map(intersectionPointToBreakPoint);
@@ -100,8 +124,44 @@
     /**
      * @private
      */
+    function isNewIntersection(type: string, list: string[], newInt: IBreakPoint): boolean {
+
+        var newVal: any;// = JSON.stringify(newInt);
+
+        switch (type) {
+            case pathType.Line:
+                newVal = newInt.breakPoint;
+                break
+
+            case pathType.Arc:
+            case pathType.Circle:
+                newVal = newInt.foreignBreakAngle;
+                break;
+
+            case pathType.Bezier:
+                newVal = round(newInt.foreignBreakT, .0001).toFixed(4);
+                break;
+        }
+
+        var newIntStr = JSON.stringify(newVal);
+
+        for (var i = 0; i < list.length; i++) {
+            if (list[i] === newIntStr) {
+                return false;
+            }
+        }
+
+        list.push(newIntStr);
+
+        return true;
+    }
+
+    /**
+     * @private
+     */
     function breakAlongForeignPath(crossedPath: ICrossedPath, overlappedSegments: ICrossedPathSegment[], foreignWalkedPath: IWalkPath) {
         var foreignPath = foreignWalkedPath.pathContext;
+        var allForeignIntersections: string[] = [];
         var segments = crossedPath.segments;
 
         if (measure.isPathEqual(segments[0].path, foreignPath, .0001, crossedPath.offset, foreignWalkedPath.offset)) {
@@ -116,12 +176,12 @@
 
         for (var i = 0; i < segments.length; i++) {
 
-            var pointsToCheck: IBreakPoint[];
+            var pointsToCheck: IBreakPoint[] = null;
             var options: IPathIntersectionOptions = { path1Offset: crossedPath.offset, path2Offset: foreignWalkedPath.offset };
             var foreignIntersection = path.intersection(segments[i].path, foreignPath, options);
 
             if (foreignIntersection) {
-                pointsToCheck = intersectionToBreakPoints(segments[i].path.type, foreignIntersection);
+                pointsToCheck = intersectionToBreakPoints(segments[i].path.type, foreignWalkedPath.pathContext.type, foreignIntersection);
 
             } else if (options.out_AreOverlapped) {
                 segments[i].overlapped = true;
@@ -141,8 +201,13 @@
                 var subSegments: IPath[] = null;
                 var p = 0;
                 while (!subSegments && p < pointsToCheck.length) {
-                    //cast absolute points to path relative space
-                    subSegments = getNonZeroSegments(segments[i].path, pointsToCheck[p], crossedPath.offset);
+
+                    if (isNewIntersection(foreignPath.type, allForeignIntersections, pointsToCheck[p])) {
+
+                        //cast absolute points to path relative space
+                        subSegments = getNonZeroSegments(segments[i].path, pointsToCheck[p], crossedPath.offset);
+                    }
+
                     p++;
                 }
 

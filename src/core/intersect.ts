@@ -189,23 +189,14 @@ namespace MakerJs.path {
         return null;
     };
 
-    map[pathType.Line][pathType.Bezier] = function (line: IPathLine, bez: IPathBezier, options: IPathIntersectionOptions, swapOffsets: boolean) {
-        var result: IPathIntersection = null;
-
-        moveTemp([line, bez], options, swapOffsets, function () {
-
-            var b = bezier.toLib(bez);
-            var values = b.intersects(bezier.toLibLine(line)) as number[];
-            if (values) {
-
-                result = {
-                    intersectionPoints: bezier.bezierIntersectionPoints(b,  values),
-                    path2BezierTs: values
-                };
-            }
-        });
-
-        return result;
+    map[pathType.Line][pathType.Bezier] = function (line: IPathLine, bez: IPathBezier, options: IPathIntersectionOptions) {
+        var result = map[pathType.Bezier][pathType.Line](bez, line, options, true);
+        if (result) {
+            result.path2BezierTs = result.path1BezierTs;
+            delete result.path1BezierTs;
+            return result;
+        }
+        return null;
     };
 
     map[pathType.Line][pathType.Circle] = function (line: IPathLine, circle: IPathCircle, options: IPathIntersectionOptions) {
@@ -253,9 +244,7 @@ namespace MakerJs.path {
 
         moveTemp([bez1, bez2], options, swapOffsets, function () {
 
-            var b1 = bezier.toLib(bez1);
-            var b2 = bezier.toLib(bez2);
-            var x = bezier.bezierToBezier(b1, b2);
+            var x = bezier.intersectBezier(bez1, bez2);
 
             if (x.length > 0) {
 
@@ -268,11 +257,12 @@ namespace MakerJs.path {
                 });
 
                 result = {
-                    intersectionPoints: bezier.bezierIntersectionPoints(b1, a1),
+                    intersectionPoints: bezier.tValuesToPoints(bez1, a1),
                     path1BezierTs: a1,
                     path2BezierTs: a2
                 };
             }
+
         });
 
         return result;
@@ -290,14 +280,22 @@ namespace MakerJs.path {
         return null;
     };
 
-    map[pathType.Bezier][pathType.Line] = function (bez: IPathBezier, line: IPathLine, options: IPathIntersectionOptions) {
-        var result = map[pathType.Line][pathType.Bezier](line, bez, options, true);
-        if (result) {
-            result.path1BezierTs = result.path2BezierTs;
-            delete result.path2BezierTs;
-            return result;
-        }
-        return null;
+    map[pathType.Bezier][pathType.Line] = function (bez: IPathBezier, line: IPathLine, options: IPathIntersectionOptions, swapOffsets: boolean) {
+        var result: IPathIntersection = null;
+
+        moveTemp([bez, line], options, swapOffsets, function () {
+
+            var values = bezier.intersectLine(bez, line);
+            if (values && values.length > 0) {
+                result = {
+                    intersectionPoints: bezier.tValuesToPoints(bez, values),
+                    path1BezierTs: values
+                };
+            }
+
+        });
+
+        return result;
     };
 
     /**
@@ -563,7 +561,7 @@ namespace MakerJs.path {
                 var curve = bezier.fromArc(arc);
 
                 //now do a bez-bez intersection
-                var results = bezToBez(bez, curve);
+                var results = bezier.intersectBezier(bez, curve);
 
                 if (results && results.length > 0) {
                     results.map(function (row: number[]) {
@@ -591,15 +589,6 @@ namespace MakerJs.path {
         }
 
         return ret;
-    }
-
-    /**
-     * @private
-     */
-    function bezToBez(bez1: IPathBezier, bez2: IPathBezier): number[][] {
-        var b1 = bezier.toLib(bez1);
-        var b2 = bezier.toLib(bez2);
-        return bezier.bezierToBezier(b1, b2);
     }
 
 }

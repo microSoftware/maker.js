@@ -275,14 +275,7 @@ namespace MakerJs.measure {
         }
     }
 
-    pathExtentsMap[pathType.Bezier] = function (bez: IPathBezier): IMeasure {
-        var b = bezier.toLib(bez);
-        var bbox = b.bbox();
-        return {
-            low: [bbox.x.min, bbox.y.min],
-            high: [bbox.x.max, bbox.y.max]
-        };
-    }
+    pathExtentsMap[pathType.Bezier] = bezier.extents;
 
     /**
      * Calculates the smallest rectangle which contains a path.
@@ -329,10 +322,7 @@ namespace MakerJs.measure {
         return value;
     }
 
-    pathLengthMap[pathType.Bezier] = function (bez: IPathBezier) {
-        var b = bezier.toLib(bez);
-        return b.length();
-    }
+    pathLengthMap[pathType.Bezier] = bezier.length;
 
     /**
      * Measures the length of a path.

@@ -797,11 +797,6 @@ namespace MakerJs {
         notes?: string;
     }
 
-    /**
-     * BezierJs library
-     */
-    export var Bezier: typeof BezierJs.Bezier = require('bezier-js');
-
 }
 
 //CommonJs
