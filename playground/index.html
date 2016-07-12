@@ -43,12 +43,18 @@
         }
     </script>
 
+    <script src="../external/bezier-js/bezier.js"></script>
+    <script>
+        window['bezier-js'] = BezierJs.Bezier;
+    </script>
+
     <script src="../node_modules/clone/clone.js"></script>
     <script src="../src/core/maker.js"></script>
     <script src="../src/core/angle.js"></script>
     <script src="../src/core/point.js"></script>
     <script src="../src/core/units.js"></script>
     <script src="../src/core/equal.js"></script>
+    <script src="../src/core/bezier.js"></script>
     <script src="../src/core/measure.js"></script>
     <script src="../src/core/path.js"></script>
     <script src="../src/core/break.js"></script>
@@ -73,6 +79,7 @@
     <script src="../src/models/BoltCircle.js"></script>
     <script src="../src/models/BoltRectangle.js"></script>
     <script src="../src/models/Dome.js"></script>
+    <script src="../src/models/Ellipse.js"></script>
     <script src="../src/models/RoundRectangle.js"></script>
     <script src="../src/models/Oval.js"></script>
     <script src="../src/models/OvalArc.js"></script>
@@ -186,14 +193,23 @@
 
                 <pre id="init-javascript-code">
 var makerjs = require('makerjs');
-this.paths = {
-    head: new makerjs.paths.Circle([0, 0], 90),
-    eye: new makerjs.paths.Circle([25, 25], 10),
-    mouth: new makerjs.paths.Arc([0, 0], 50, 225, 315),
-    wink: new makerjs.paths.Line([-35, 20], [-15, 20])
+this.models = {
+    head: new makerjs.models.Ellipse([0, 0], 100, 50),
+box: new makerjs.models.Ellipse([0, 0], 100, 50)
 };
-this.notes = '# Welcome to the Maker.js playground \n You can edit the JavaScript code, then click **Run** to see your drawing.';
-//press enter here to add more blank lines
+this.models.box.origin = [50,25];
+makerjs.model.originate(this.models.box);
+
+makerjs.model.combine(this.models.head, this.models.box, true, true, true, true, {trimDeadEnds: false});
+//this.models.x = makerjs.model.expandPaths(this, 5);
+this.models.x = makerjs.path.expand(this.models["head"].paths["Curve7"], 5);
+/*
+                    this.models = {
+    head: new makerjs.models.Ellipse([0, 0], 100, 50),
+box: new makerjs.models.Square(75)
+};
+makerjs.model.combineUnion(this.models.head, this.models.box);
+*/
 </pre>
             </div>
         </section>
