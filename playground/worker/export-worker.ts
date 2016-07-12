@@ -14,6 +14,9 @@ module.require = (id: string): any => {
     return this;
 };
 
+importScripts('../../external/bezier-js/bezier.js');
+module['bezier-js'] = BezierJs.Bezier;
+
 importScripts(
     '../../target/js/browser.maker.js?' + new Date().valueOf(),
     '../iexport.js');

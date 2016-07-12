@@ -7,6 +7,8 @@ module.require = function (id) {
     }
     return _this;
 };
+importScripts('../../external/bezier-js/bezier.js');
+module['bezier-js'] = BezierJs.Bezier;
 importScripts('../../target/js/browser.maker.js?' + new Date().valueOf(), '../iexport.js');
 var makerjs = require('makerjs');
 var unionCount = 0;
