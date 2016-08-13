@@ -175,9 +175,8 @@ namespace MakerJs.exporter {
         }
 
         var options: IWalkOptions = {
-            beforeChildWalk: function (walkedModel: IWalkModel): boolean {
+            onModel: function (walkedModel: IWalkModel) {
                 checkIsBezierWithPaths(walkedModel);
-                return true;
             }
         };
 
@@ -544,8 +543,29 @@ namespace MakerJs.exporter {
             }
 
             var modelGroup = new XmlTag('g');
-            var exp = new Exporter(map, fixPoint, fixPath, beginModel, endModel);
-            exp.exportItem('0', itemToExport, opts.origin);
+
+            var walkOptions: IWalkOptions = {
+
+                onModel: (walkedModel: IWalkModel) => {
+                    beginModel(walkedModel.childId, walkedModel.childModel);
+                },
+
+                onPath: (walkedPath: IWalkPath) => {
+                    var fn = map[walkedPath.pathContext.type];
+                    if (fn) {
+                        var offset = point.add(fixPoint(walkedPath.offset), opts.origin);
+                        fn(walkedPath.pathId, fixPath(walkedPath.pathContext, offset), offset, walkedPath.layer);
+                    }
+                },
+
+                afterChildWalk: (walkedModel: IWalkModel) => {
+                    endModel(walkedModel.childModel);
+                }
+            };
+
+            beginModel('0', modelToExport);
+
+            model.walk(modelToExport, walkOptions);
 
             //export layers as groups
             for (var layer in layers) {
@@ -796,7 +816,7 @@ namespace MakerJs.importer {
             var decreasing = cmd.data[4] === 1;
             var end = getPoint(cmd, 5);
             var elliptic = rx !== ry;
-            
+
             //first, rotate so we are dealing with a zero angle x-axis
             var xAxis = new paths.Line(cmd.from, point.rotate(end, rotation, cmd.from));
 
