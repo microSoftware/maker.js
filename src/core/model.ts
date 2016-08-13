@@ -343,18 +343,42 @@ namespace MakerJs.model {
      * Recursively walk through all paths for a given model.
      * 
      * @param modelContext The model to walk.
-     * @param pathCallback Callback for each path.
-     * @param modelCallbackBeforeWalk Callback for each model prior to recursion, which can cancel the recursion if it returns false.
-     * @param modelCallbackAfterWalk Callback for each model after recursion.
+     * @param options IWalkOptions.
+     * @param options.onModel Callback for each model.
+     * @param options.beforeChildWalk Callback for each model prior to recursion, which can cancel the recursion if it returns false.
+     * @param options.onPath Callback for each path.
+     * @param options.afterChildWalk Callback for each model after recursion.
      */
-    export function walk(modelContext: IModel, options: IWalkOptions) {
+    export function walk(modelContext: IModel, options: IWalkOptions, offsetOrigin: IPoint = [0, 0]) {
 
         if (!modelContext) return;
 
-        function walkRecursive(modelContext: IModel, layer: string, offset: IPoint, route: string[], routeKey: string) {
+        function walkRecursive(parentModel: IModel, modelContext: IModel, modelId: string, layer: string, offset: IPoint, route: string[], routeKey: string) {
 
             var newOffset = point.add(modelContext.origin, offset);
             layer = modelContext.layer || '';
+
+            var walkedModel: IWalkModel;
+
+            if (parentModel) {
+                walkedModel = {
+                    parentModel: parentModel,
+                    layer: layer,
+                    offset: newOffset,
+                    route: route,
+                    routeKey: routeKey,
+                    childId: modelId,
+                    childModel: modelContext
+                };
+
+                if (options.onModel) {
+                    options.onModel(walkedModel);
+                }
+
+                if (options.beforeChildWalk) {
+                    if (!options.beforeChildWalk(walkedModel)) return;
+                }
+            }
 
             if (modelContext.paths) {
                 for (var pathId in modelContext.paths) {
@@ -377,35 +401,21 @@ namespace MakerJs.model {
             }
 
             if (modelContext.models) {
-                for (var modelId in modelContext.models) {
+                for (var childModelId in modelContext.models) {
 
-                    var childModel = modelContext.models[modelId];
+                    var childModel = modelContext.models[childModelId];
                     if (!childModel) continue;
 
-                    var walkedModel: IWalkModel = {
-                        parentModel: modelContext,
-                        layer: childModel.layer || layer,
-                        offset: newOffset,
-                        route: route.concat(['models', modelId]),
-                        routeKey: routeKey + '.models' + JSON.stringify([modelId]),
-                        childId: modelId,
-                        childModel: childModel
-                    };
-
-                    if (options.beforeChildWalk) {
-                        if (!options.beforeChildWalk(walkedModel)) continue;
-                    }
-
-                    walkRecursive(walkedModel.childModel, layer, newOffset, walkedModel.route, walkedModel.routeKey);
-
-                    if (options.afterChildWalk) {
-                        options.afterChildWalk(walkedModel);
-                    }
+                    walkRecursive(modelContext, childModel, childModelId, layer, newOffset, route.concat(['models', childModelId]), routeKey + '.models' + JSON.stringify([childModelId]));
                 }
+            }
+
+            if (walkedModel && options.afterChildWalk) {
+                options.afterChildWalk(walkedModel);
             }
         }
 
-        walkRecursive(modelContext, '', [0, 0], [], '');
+        walkRecursive(null, modelContext, '', '', offsetOrigin, [], '');
 
     }
 
