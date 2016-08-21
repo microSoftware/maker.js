@@ -39,7 +39,7 @@ and limitations under the License.
  *   author: Dan Marshall / Microsoft Corporation
  *   maintainers: Dan Marshall <danmar@microsoft.com>
  *   homepage: https://github.com/Microsoft/maker.js
- *   version: 0.9.11
+ *   version: 0.9.10
  *
  * browserify:
  *   license: MIT (http://opensource.org/licenses/MIT)
@@ -1190,28 +1190,16 @@ var MakerJs;
         function converge(lineA, lineB, useOriginA, useOriginB) {
             var p = MakerJs.point.fromSlopeIntersection(lineA, lineB);
             if (p) {
-                var lines = [lineA, lineB];
-                var useOrigin = [useOriginA, useOriginB];
-                if (arguments.length === 2) {
-                    //converge to closest
-                    lines.forEach(function (line, i) {
-                        useOrigin[i] = (MakerJs.point.closest(p, [line.origin, line.end]) === line.origin);
-                    });
-                }
                 function setPoint(line, useOrigin) {
-                    var setP;
                     if (useOrigin) {
-                        setP = line.origin;
+                        line.origin = p;
                     }
                     else {
-                        setP = line.end;
+                        line.end = p;
                     }
-                    setP[0] = p[0];
-                    setP[1] = p[1];
                 }
-                lines.forEach(function (line, i) {
-                    setPoint(line, useOrigin[i]);
-                });
+                setPoint(lineA, useOriginA);
+                setPoint(lineB, useOriginB);
             }
             return p;
         }
@@ -2940,7 +2928,7 @@ var MakerJs;
          * @param arcA The arc to test.
          * @param arcB The arc to check for overlap.
          * @param excludeTangents Boolean to exclude exact endpoints and only look for deep overlaps.
-         * @returns Boolean true if arcA is overlapped with arcB.
+         * @returns Boolean true if arc1 is overlapped with arcB.
          */
         function isArcOverlapping(arcA, arcB, excludeTangents) {
             var pointsOfIntersection = [];
@@ -3032,7 +3020,7 @@ var MakerJs;
          * @param lineA The line to test.
          * @param lineB The line to check for overlap.
          * @param excludeTangents Boolean to exclude exact endpoints and only look for deep overlaps.
-         * @returns Boolean true if lineA is overlapped with lineB.
+         * @returns Boolean true if line1 is overlapped with lineB.
          */
         function isLineOverlapping(lineA, lineB, excludeTangents) {
             var pointsOfIntersection = [];
@@ -3050,7 +3038,7 @@ var MakerJs;
          *
          * @param measureA The measurement to test.
          * @param measureB The measurement to check for overlap.
-         * @returns Boolean true if measureA is overlapped with measureB.
+         * @returns Boolean true if measure1 is overlapped with measureB.
          */
         function isMeasurementOverlapping(measureA, measureB) {
             for (var i = 2; i--;) {
@@ -6872,6 +6860,6 @@ var MakerJs;
         models.Text = Text;
     })(models = MakerJs.models || (MakerJs.models = {}));
 })(MakerJs || (MakerJs = {}));
-MakerJs.version = "0.9.11";
+MakerJs.version = "0.9.10";
 
 },{"clone":2}]},{},[]);
