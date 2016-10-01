@@ -5,6 +5,7 @@
     MakerJsPlayground: typeof MakerJsPlayground;    //this is not in this window but it is in the parent
     makerjs: typeof MakerJs;
     playgroundRender: Function;
+    paramValues: any[];
 }
 
 namespace MakerJsRequireIframe {
@@ -44,7 +45,7 @@ namespace MakerJsRequireIframe {
             write: devNull
         };
         var Fn: any = new Function('require', 'module', 'document', 'console', 'alert', 'playgroundRender', javaScript);
-        var result: any = new Fn(window.collectRequire, window.module, mockDocument, parent.console, devNull, devNull); //call function with the "new" keyword so the "this" keyword is an instance
+        var result: any = new Fn(window.require, window.module, mockDocument, parent.console, devNull, devNull); //call function with the "new" keyword so the "this" keyword is an instance
 
         return window.module.exports || result;
     }
@@ -93,7 +94,7 @@ namespace MakerJsRequireIframe {
             };
 
             //send error results back to parent window
-            parent.MakerJsPlayground.processResult('', errorDetails);
+            parent.MakerJsPlayground.processResult({ result: errorDetails });
 
         }, 5000);
 
@@ -140,6 +141,7 @@ namespace MakerJsRequireIframe {
     var loads: IStringMap = {};
     var reloads: string[] = [];
     var previousId: string = null;
+    var collection = true;
     var counter = new Counter();
     var htmls: string[] = [];
     var logs: string[] = [];
@@ -188,13 +190,13 @@ namespace MakerJsRequireIframe {
         };
 
         //send error results back to parent window
-        parent.MakerJsPlayground.processResult('', errorDetails);
+        parent.MakerJsPlayground.processResult({ result: errorDetails });
         errorReported = true;
     };
 
-    window.collectRequire = function (id: string) {
+    window.require = function (id: string) {
 
-        if (id === 'makerjs') {
+        if (collection && id === 'makerjs') {
             return mockMakerJs;
         }
 
@@ -215,13 +217,6 @@ namespace MakerJsRequireIframe {
 
         //return an object that may be treated like a class
         return Temp;
-    };
-
-    window.require = function (id: string) {
-
-        //return cached required file
-        return required[id];
-
     };
 
     window.module = { exports: null } as NodeModule;
@@ -275,20 +270,27 @@ namespace MakerJsRequireIframe {
             //yield thread for the script tag to execute
             setTimeout(function () {
 
-                //restore properties from the "this" keyword
-                var model: MakerJs.IModel = {};
-                var props = ['layer', 'models', 'notes', 'origin', 'paths', 'type', 'units'];
-                var hasProps = false;
-                for (var i = 0; i < props.length; i++) {
-                    var prop = props[i];
-                    if (prop in window) {
-                        model[prop] = window[prop];
-                        hasProps = true;
-                    }
-                }
+                var model: MakerJs.IModel;
 
-                if (!hasProps) {
-                    model = null;
+                if (captureExportedModel) {
+                    model = captureExportedModel;
+                } else {
+
+                    //restore properties from the "this" keyword
+                    model = {};
+                    var props = ['layer', 'models', 'notes', 'origin', 'paths', 'type', 'units'];
+                    var hasProps = false;
+                    for (var i = 0; i < props.length; i++) {
+                        var prop = props[i];
+                        if (prop in window) {
+                            model[prop] = window[prop];
+                            hasProps = true;
+                        }
+                    }
+
+                    if (!hasProps) {
+                        model = null;
+                    }
                 }
 
                 var orderedDependencies: string[] = [];
@@ -300,7 +302,7 @@ namespace MakerJsRequireIframe {
                 }
 
                 //send results back to parent window
-                parent.MakerJsPlayground.processResult(getHtml(), window.module.exports || model || captureExportedModel, orderedDependencies);
+                parent.MakerJsPlayground.processResult({ html: getHtml(), result: window.module.exports || model, orderedDependencies: orderedDependencies, paramValues: window.paramValues });
 
             }, 0);
 
@@ -336,6 +338,8 @@ namespace MakerJsRequireIframe {
 
         }
 
+        collection = false;
+
         //if there were no requirements, fire the complete function manually
         if (counter.required == 0) {
             counter.complete();
@@ -343,7 +347,7 @@ namespace MakerJsRequireIframe {
     }
 
     window.playgroundRender = function (result) {
-        parent.MakerJsPlayground.processResult(getHtml(), result);
+        parent.MakerJsPlayground.processResult({ html: getHtml(), result: result, paramValues: window.paramValues });
     }
 
     function devNull() { }

@@ -284,8 +284,8 @@ namespace MakerJs.exporter {
      */
     export function toSVG(itemToExport: any, options?: ISVGRenderOptions): string {
 
-        function append(value: string, layer?: string) {
-            if (typeof layer == "string" && layer.length > 0) {
+        function append(value: string, layer?: string, forcePush = false) {
+            if (!forcePush && typeof layer == "string" && layer.length > 0) {
 
                 if (!(layer in layers)) {
                     layers[layer] = [];
@@ -298,7 +298,7 @@ namespace MakerJs.exporter {
             }
         }
 
-        function createElement(tagname: string, attrs: IXmlTagAttrs, layer: string, innerText: string = null) {
+        function createElement(tagname: string, attrs: IXmlTagAttrs, layer: string, innerText: string = null, forcePush = false) {
 
             attrs['vector-effect'] = 'non-scaling-stroke';
 
@@ -308,7 +308,7 @@ namespace MakerJs.exporter {
                 tag.innerText = innerText;
             }
 
-            append(tag.toString(), layer);
+            append(tag.toString(), layer, forcePush);
         }
 
         function fixPoint(pointToFix: IPoint): IPoint {
@@ -427,7 +427,7 @@ namespace MakerJs.exporter {
 
             for (var layer in pathDataByLayer) {
                 var pathData = pathDataByLayer[layer].join(' ');
-                createElement("path", { "d": pathData }, layer);
+                createElement("path", { "d": pathData }, layer, null, true);
             }
 
         } else {

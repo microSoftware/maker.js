@@ -39,7 +39,7 @@ and limitations under the License.
  *   author: Dan Marshall / Microsoft Corporation
  *   maintainers: Dan Marshall <danmar@microsoft.com>
  *   homepage: https://github.com/Microsoft/maker.js
- *   version: 0.9.12
+ *   version: 0.9.17
  *
  * browserify:
  *   license: MIT (http://opensource.org/licenses/MIT)
@@ -240,6 +240,34 @@ var MakerJs;
      * Version info
      */
     MakerJs.version = 'debug';
+    /**
+     * Enumeration of environment types.
+     */
+    MakerJs.environmentTypes = {
+        BrowserUI: 'browser',
+        NodeJs: 'node',
+        WebWorker: 'worker',
+        Unknown: 'unknown'
+    };
+    /**
+     * @private
+     */
+    function detectEnvironment() {
+        if (('global' in this) && ('process' in this)) {
+            return MakerJs.environmentTypes.NodeJs;
+        }
+        if (('window' in this) && ('document' in this)) {
+            return MakerJs.environmentTypes.BrowserUI;
+        }
+        if (('WorkerGlobalScope' in this) && ('self' in this)) {
+            return MakerJs.environmentTypes.WebWorker;
+        }
+        return MakerJs.environmentTypes.Unknown;
+    }
+    /**
+     * Current execution environment type, should be one of environmentTypes.
+     */
+    MakerJs.environment = detectEnvironment();
     //units
     /**
      * String-based enumeration of unit types: imperial, metric or otherwise.
@@ -853,6 +881,7 @@ var MakerJs;
          * @returns A new point.
          */
         function rotate(pointToRotate, angleInDegrees, rotationOrigin) {
+            if (rotationOrigin === void 0) { rotationOrigin = [0, 0]; }
             var pointAngleInRadians = MakerJs.angle.ofPointInRadians(rotationOrigin, pointToRotate);
             var d = MakerJs.measure.pointDistance(rotationOrigin, pointToRotate);
             var rotatedPoint = fromPolar(pointAngleInRadians + MakerJs.angle.toRadians(angleInDegrees), d);
@@ -1094,6 +1123,7 @@ var MakerJs;
          * @returns The original path (for chaining).
          */
         function rotate(pathToRotate, angleInDegrees, rotationOrigin) {
+            if (rotationOrigin === void 0) { rotationOrigin = [0, 0]; }
             if (!pathToRotate || angleInDegrees == 0)
                 return pathToRotate;
             pathToRotate.origin = MakerJs.point.rotate(pathToRotate.origin, angleInDegrees, rotationOrigin);
@@ -1733,6 +1763,7 @@ var MakerJs;
          * @returns The original model (for chaining).
          */
         function rotate(modelToRotate, angleInDegrees, rotationOrigin) {
+            if (rotationOrigin === void 0) { rotationOrigin = [0, 0]; }
             if (modelToRotate) {
                 var offsetOrigin = MakerJs.point.subtract(rotationOrigin, modelToRotate.origin);
                 if (modelToRotate.type === MakerJs.models.BezierCurve.typeName) {
@@ -5014,10 +5045,29 @@ var MakerJs;
             if (options === void 0) { options = {}; }
             if (!modelToExport)
                 return '';
+            var container;
+            switch (MakerJs.environment) {
+                case MakerJs.environmentTypes.BrowserUI:
+                    if (!('CAG' in window) || !('CSG' in window)) {
+                        throw "OpenJsCad library not found. Download http://microsoft.github.io/maker.js/external/OpenJsCad/csg.js and http://microsoft.github.io/maker.js/external/OpenJsCad/formats.js to your website and add script tags.";
+                    }
+                    container = window;
+                    break;
+                case MakerJs.environmentTypes.NodeJs:
+                    //this can throw if not found
+                    container = require('openjscad-csg');
+                    break;
+                case MakerJs.environmentTypes.WebWorker:
+                    if (!('CAG' in self) || !('CSG' in self)) {
+                        throw "OpenJsCad library not found. Download http://microsoft.github.io/maker.js/external/OpenJsCad/csg.js and http://microsoft.github.io/maker.js/external/OpenJsCad/formats.js to your website and add an importScripts statement.";
+                    }
+                    container = self;
+                    break;
+            }
             var script = toOpenJsCad(modelToExport, options);
             script += 'return ' + options.functionName + '();';
-            var f = new Function(script);
-            var csg = f();
+            var f = new Function('CAG', 'CSG', script);
+            var csg = f(container.CAG, container.CSG);
             return csg.toStlString();
         }
         exporter.toSTL = toSTL;
@@ -5289,8 +5339,9 @@ var MakerJs;
          * @returns String of XML / SVG content.
          */
         function toSVG(itemToExport, options) {
-            function append(value, layer) {
-                if (typeof layer == "string" && layer.length > 0) {
+            function append(value, layer, forcePush) {
+                if (forcePush === void 0) { forcePush = false; }
+                if (!forcePush && typeof layer == "string" && layer.length > 0) {
                     if (!(layer in layers)) {
                         layers[layer] = [];
                     }
@@ -5300,14 +5351,15 @@ var MakerJs;
                     elements.push(value);
                 }
             }
-            function createElement(tagname, attrs, layer, innerText) {
+            function createElement(tagname, attrs, layer, innerText, forcePush) {
                 if (innerText === void 0) { innerText = null; }
+                if (forcePush === void 0) { forcePush = false; }
                 attrs['vector-effect'] = 'non-scaling-stroke';
                 var tag = new exporter.XmlTag(tagname, attrs);
                 if (innerText) {
                     tag.innerText = innerText;
                 }
-                append(tag.toString(), layer);
+                append(tag.toString(), layer, forcePush);
             }
             function fixPoint(pointToFix) {
                 //in DXF Y increases upward. in SVG, Y increases downward
@@ -5401,7 +5453,7 @@ var MakerJs;
                 var pathDataByLayer = getPathDataByLayer(modelToExport, opts.origin, { byLayers: true });
                 for (var layer in pathDataByLayer) {
                     var pathData = pathDataByLayer[layer].join(' ');
-                    createElement("path", { "d": pathData }, layer);
+                    createElement("path", { "d": pathData }, layer, null, true);
                 }
             }
             else {
@@ -6867,10 +6919,12 @@ var MakerJs;
                         currPoint = points[0];
                     });
                     charModel.origin = [x, 0];
-                    if (centerCharacterOrigin) {
+                    if (centerCharacterOrigin && (charModel.paths || charModel.models)) {
                         var m = MakerJs.measure.modelExtents(charModel);
-                        var w = m.high[0] - m.low[0];
-                        MakerJs.model.originate(charModel, [x + w / 2, 0]);
+                        if (m) {
+                            var w = m.high[0] - m.low[0];
+                            MakerJs.model.originate(charModel, [m.low[0] + w / 2, 0]);
+                        }
                     }
                     if (combine && charIndex > 0) {
                         MakerJs.model.combine(_this, charModel, false, true, false, true, combineOptions);
@@ -6886,8 +6940,15 @@ var MakerJs;
             return Text;
         }());
         models.Text = Text;
+        Text.metaParameters = [
+            { title: "font", type: "font", value: '*' },
+            { title: "text", type: "text", value: 'Hello' },
+            { title: "font size", type: "range", min: 10, max: 200, value: 72 },
+            { title: "combine", type: "bool", value: false },
+            { title: "center character origin", type: "bool", value: false }
+        ];
     })(models = MakerJs.models || (MakerJs.models = {}));
 })(MakerJs || (MakerJs = {}));
-MakerJs.version = "0.9.12";
+MakerJs.version = "0.9.17";
 
-},{"clone":2}]},{},[]);
+},{"clone":2,"openjscad-csg":1}]},{},[]);

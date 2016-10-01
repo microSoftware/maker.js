@@ -13,6 +13,7 @@
         format: ExportFormat;
         formatTitle: string;
         model: MakerJs.IModel;
+        options: MakerJs.exporter.IExportOptions;
     }
 
     interface IFileExport {
@@ -63,3 +64,11 @@
     };
 
 }
+
+interface IFont {
+    displayName: string;
+    path: string;
+    tags: string[];
+}
+
+declare var fonts: { [id: string]: IFont };

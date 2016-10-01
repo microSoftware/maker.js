@@ -21,10 +21,14 @@ var MakerJsPlayground;
     var customizeMenu;
     var view;
     var viewSvgContainer;
+    var gridPattern;
+    var gridPatternFill;
     var paramsDiv;
+    var measurementDiv;
     var progress;
     var preview;
     var checkFitToScreen;
+    var checkShowGrid;
     var checkNotes;
     var margin;
     var processed = {
@@ -86,17 +90,15 @@ var MakerJsPlayground;
             var sliders = 0;
             for (var i = 0; i < metaParameters.length; i++) {
                 var attrs = makerjs.cloneObject(metaParameters[i]);
-                var id = 'slider_' + i;
-                var label = new makerjs.exporter.XmlTag('label', { "for": id, title: attrs.title });
-                label.innerText = attrs.title + ': ';
+                var id = 'input_param_' + i;
+                var prepend = false;
                 var input = null;
                 var numberBox = null;
                 switch (attrs.type) {
                     case 'range':
                         sliders++;
-                        attrs.title = attrs.value;
                         attrs['id'] = id;
-                        attrs['onchange'] = 'this.title=this.value;MakerJsPlayground.setParam(' + i + ', makerjs.round(this.valueAsNumber, .001)); if (MakerJsPlayground.isSmallDevice()) { MakerJsPlayground.activateParam(this); MakerJsPlayground.deActivateParam(this, 1000); }';
+                        attrs['onchange'] = 'MakerJsPlayground.setParam(' + i + ', makerjs.round(this.valueAsNumber, .001)); if (MakerJsPlayground.isSmallDevice()) { MakerJsPlayground.activateParam(this); MakerJsPlayground.deActivateParam(this, 1000); }';
                         attrs['ontouchstart'] = 'MakerJsPlayground.activateParam(this)';
                         attrs['ontouchend'] = 'MakerJsPlayground.deActivateParam(this, 1000)';
                         attrs['onmousedown'] = 'if (MakerJsPlayground.isSmallDevice()) { MakerJsPlayground.activateParam(this); }';
@@ -120,8 +122,6 @@ var MakerJsPlayground;
                         numberBox.innerText = new makerjs.exporter.XmlTag('input', numberBoxAttrs).toString();
                         numberBox.innerTextEscaped = true;
                         paramValues.push(attrs.value);
-                        label.attrs['title'] = 'click to toggle slider / textbox for ' + label.attrs['title'];
-                        label.attrs['onclick'] = 'MakerJsPlayground.toggleSliderNumberBox(this, ' + i + ')';
                         break;
                     case 'bool':
                         var checkboxAttrs = {
@@ -133,9 +133,34 @@ var MakerJsPlayground;
                         }
                         input = new makerjs.exporter.XmlTag('input', checkboxAttrs);
                         paramValues.push(attrs.value);
+                        prepend = true;
+                        break;
+                    case 'font':
+                        var selectFontAttrs = {
+                            id: id,
+                            onchange: 'MakerJsPlayground.setParam(' + i + ', this.options[this.selectedIndex].value)'
+                        };
+                        input = new makerjs.exporter.XmlTag('select', selectFontAttrs);
+                        var fontOptions = '';
+                        var added = false;
+                        for (var fontId in fonts) {
+                            var font = fonts[fontId];
+                            if (!MakerJsPlayground.FontLoader.fontMatches(font, attrs.value))
+                                continue;
+                            if (!added) {
+                                paramValues.push(fontId);
+                                added = true;
+                            }
+                            var option = new makerjs.exporter.XmlTag('option', { value: fontId });
+                            option.innerText = font.displayName;
+                            options += option.toString();
+                        }
+                        input.innerText = options;
+                        input.innerTextEscaped = true;
                         break;
                     case 'select':
                         var selectAttrs = {
+                            id: id,
                             onchange: 'MakerJsPlayground.setParam(' + i + ', JSON.parse(this.options[this.selectedIndex].innerText))'
                         };
                         input = new makerjs.exporter.XmlTag('select', selectAttrs);
@@ -150,6 +175,7 @@ var MakerJsPlayground;
                         paramValues.push(attrs.value[0]);
                         break;
                     case 'text':
+                        attrs['id'] = id;
                         attrs['onchange'] = 'MakerJsPlayground.setParam(' + i + ', this.value)';
                         input = new makerjs.exporter.XmlTag('input', attrs);
                         paramValues.push(attrs.value);
@@ -158,7 +184,19 @@ var MakerJsPlayground;
                 if (!input)
                     continue;
                 var div = new makerjs.exporter.XmlTag('div');
-                div.innerText = label.toString() + input.toString();
+                var label = new makerjs.exporter.XmlTag('label');
+                label.innerText = attrs.title;
+                if (prepend) {
+                    var innerText = input.toString() + ' ' + label.getInnerText();
+                    label.innerText = innerText;
+                    label.innerTextEscaped = true;
+                    div.innerText = label.toString();
+                }
+                else {
+                    label.attrs = { "for": id };
+                    label.innerText += ': ';
+                    div.innerText = label.toString() + input.toString();
+                }
                 if (numberBox) {
                     div.innerText += numberBox.toString();
                 }
@@ -167,10 +205,17 @@ var MakerJsPlayground;
             }
         }
         processed.paramValues = paramValues;
+        if (paramHtml.length) {
+            document.body.classList.add('show-params-link');
+        }
+        else {
+            document.body.classList.remove('show-params-link');
+        }
         paramsDiv.innerHTML = paramHtml.join('');
+        saveParamsLink();
         paramsDiv.setAttribute('disabled', 'true');
     }
-    function generateCodeFromKit(id, kit) {
+    function generateCodeFromKit(id, kit, paramValues) {
         var values = [];
         var comment = [];
         var code = [];
@@ -178,25 +223,32 @@ var MakerJsPlayground;
         for (var i in kit.metaParameters) {
             comment.push(firstComment + kit.metaParameters[i].title);
             firstComment = "";
-            var value = kit.metaParameters[i].value;
-            if (kit.metaParameters[i].type === 'select') {
-                value = value[0];
-            }
-            if (makerjs.isObject(value)) {
-                values.push(JSON.stringify(value));
+            var value;
+            if (kit.metaParameters[i].type === 'font') {
+                value = 'font';
             }
             else {
-                values.push(value);
+                value = kit.metaParameters[i].value;
+                if (kit.metaParameters[i].type === 'select') {
+                    value = value[0];
+                }
+                value = JSON.stringify(value);
+            }
+            values.push(value);
+            if (paramValues && paramValues.length >= values.length) {
+                values[values.length - 1] = paramValues[values.length - 1];
             }
         }
         code.push("var makerjs = require('makerjs');");
         code.push("");
+        code.push("/* Example:");
+        code.push("");
         code.push(comment.join(", "));
+        code.push("var my" + id + " = new makerjs.models." + id + "(" + values.join(', ') + ");");
         code.push("");
-        code.push("this.models = {");
-        code.push("  my" + id + ": new makerjs.models." + id + "(" + values.join(', ') + ")");
-        code.push("};");
+        code.push("*/");
         code.push("");
+        code.push("module.exports = makerjs.models." + id + ";");
         return code.join('\n');
     }
     function resetDownload() {
@@ -428,13 +480,8 @@ var MakerJsPlayground;
         keepEventElement = null;
     }
     function getZoom() {
-        //expects pixels
-        var scale = 1;
-        if (MakerJsPlayground.renderUnits) {
-            scale = makerjs.units.conversionScale(MakerJsPlayground.renderUnits, makerjs.unitType.Inch) * pixelsPerInch;
-        }
         return {
-            origin: makerjs.point.scale(viewOrigin, scale),
+            origin: viewOrigin,
             pan: viewPanOffset,
             zoom: MakerJsPlayground.viewScale
         };
@@ -452,6 +499,7 @@ var MakerJsPlayground;
             //no need to re-render, just move the margin
             svgElement.style.marginLeft = viewPanOffset[0] + 'px';
             svgElement.style.marginTop = viewPanOffset[1] + 'px';
+            panGrid();
         }
         else {
             //zoom and pan
@@ -466,11 +514,52 @@ var MakerJsPlayground;
             render();
         }
     }
+    function getGridScale() {
+        var gridScale = 1;
+        while (MakerJsPlayground.viewScale * gridScale < 6) {
+            gridScale *= 10;
+        }
+        while (MakerJsPlayground.viewScale * gridScale > 60) {
+            gridScale /= 10;
+        }
+        return gridScale;
+    }
+    function zoomGrid() {
+        var gridScale = (getGridScale() * 10 * MakerJsPlayground.viewScale).toString();
+        gridPattern.setAttribute('width', gridScale);
+        gridPattern.setAttribute('height', gridScale);
+        gridPatternFill.setAttribute('width', gridScale);
+        gridPatternFill.setAttribute('height', gridScale);
+    }
+    function panGrid() {
+        var p = makerjs.point.add(viewPanOffset, viewOrigin);
+        gridPattern.setAttribute('patternTransform', 'translate(' + p[0] + ',' + p[1] + ')');
+    }
+    function getUnits() {
+        if (processed.model && processed.model.units) {
+            return processed.model.units;
+        }
+        return null;
+    }
+    function isMeasurementEqual(m1, m2) {
+        if (!m1 && !m2)
+            return true;
+        if (!m1 || !m2)
+            return false;
+        if (!makerjs.measure.isPointEqual(m1.low, m2.low))
+            return false;
+        if (!makerjs.measure.isPointEqual(m1.high, m2.high))
+            return false;
+        return true;
+    }
     function setProcessedModel(model, error) {
         clearTimeout(setProcessedModelTimer);
+        var oldUnits = getUnits();
+        var oldMeasurement = processed.measurement;
         processed.model = model;
         processed.measurement = null;
         processed.error = error;
+        var newUnits = getUnits();
         if (!error) {
             if (errorMarker) {
                 errorMarker.clear();
@@ -485,39 +574,70 @@ var MakerJsPlayground;
             initialize();
         }
         //todo: find minimum viewScale
-        processed.measurement = makerjs.measure.modelExtents(processed.model);
+        var newMeasurement = makerjs.measure.modelExtents(processed.model);
+        processed.measurement = newMeasurement;
         if (!processed.measurement) {
             setProcessedModelTimer = setTimeout(function () {
                 setProcessedModel(new StraightFace(), 'Your model code was processed, but it resulted in a model with no measurement. It probably does not have any paths. Here is the JSON representation: \n\n```' + JSON.stringify(processed.model) + '```');
             }, 2500);
             return;
         }
-        if (!MakerJsPlayground.viewScale || checkFitToScreen.checked) {
+        if ((!MakerJsPlayground.viewScale || oldUnits != newUnits) || (!isMeasurementEqual(oldMeasurement, newMeasurement) && checkFitToScreen.checked)) {
             fitOnScreen();
         }
-        else if (MakerJsPlayground.renderUnits != processed.model.units) {
-            fitNatural();
-        }
         document.body.classList.remove('wait');
+        if (newUnits)
+            document.body.classList.add('has-units');
+        else {
+            document.body.classList.remove('has-units');
+        }
         render();
+        var measureText;
         if (processed.error) {
             setNotes(processed.error);
             //sync notes and checkbox
             if (checkNotes)
                 checkNotes.checked = true;
             document.body.classList.remove('collapse-notes');
+            measureText = '';
         }
-        else if (!updateLockedPathNotes()) {
-            setNotesFromModelOrKit();
+        else {
+            var size = getModelNaturalSize();
+            measureText = size[0].toFixed(2) + ' x ' + size[1].toFixed(2) + ' ' + (newUnits || 'units');
+            if (!updateLockedPathNotes()) {
+                setNotesFromModelOrKit();
+            }
+        }
+        if (measurementDiv) {
+            measurementDiv.innerText = measureText;
         }
         if (MakerJsPlayground.onViewportChange) {
             MakerJsPlayground.onViewportChange();
         }
     }
-    function constructOnMainThread() {
+    function constructOnMainThread(successCb) {
+        var fontLoader = new MakerJsPlayground.FontLoader(opentype, processed.kit.metaParameters, processed.paramValues);
+        fontLoader.successCb = function (realValues) {
+            constructOnMainThreadReal(realValues, successCb);
+        };
+        fontLoader.failureCb = function (id) {
+            var errorDetails = {
+                colno: 0,
+                lineno: 0,
+                message: 'error loading font' + fonts[id].path,
+                name: 'Network error'
+            };
+            processResult({ result: errorDetails });
+        };
+        fontLoader.load();
+    }
+    function constructOnMainThreadReal(realValues, successCb) {
         try {
-            var model = makerjs.kit.construct(processed.kit, processed.paramValues);
+            var model = makerjs.kit.construct(processed.kit, realValues);
             setProcessedModel(model);
+            if (successCb) {
+                successCb();
+            }
         }
         catch (e) {
             var error = e;
@@ -534,11 +654,11 @@ var MakerJsPlayground;
                 errorDetails.lineno = parseInt(matches[1]);
                 errorDetails.colno = parseInt(matches[2]);
             }
-            processResult('', errorDetails);
+            processResult({ result: errorDetails });
         }
     }
     function constructInWorker(javaScript, orderedDependencies, successHandler, errorHandler) {
-        var orderedSrc;
+        var idToUrlMap;
         renderInWorker.hasKit = false;
         if (renderInWorker.worker) {
             renderInWorker.worker.terminate();
@@ -555,15 +675,16 @@ var MakerJsPlayground;
                 successHandler(response.model);
             }
         };
-        orderedSrc = {};
+        idToUrlMap = {};
         for (var i = 0; i < orderedDependencies.length; i++) {
             //add extra path traversal for worker subfolder
-            orderedSrc[orderedDependencies[i]] = '../' + filenameFromRequireId(orderedDependencies[i], true);
+            idToUrlMap[orderedDependencies[i]] = '../' + filenameFromRequireId(orderedDependencies[i], true);
         }
         var options = {
             requestId: 0,
             javaScript: javaScript,
-            orderedDependencies: orderedSrc,
+            orderedDependencies: orderedDependencies,
+            dependencyUrls: idToUrlMap,
             paramValues: processed.paramValues
         };
         //tell the worker to process the job
@@ -592,35 +713,103 @@ var MakerJsPlayground;
         //tell the worker to process the job
         renderInWorker.worker.postMessage(options);
     }
-    function selectParamSlider(index) {
+    function getParamUIControl(index) {
         var div = document.querySelectorAll('#params > div')[index];
         if (!div)
             return;
+        var checkbox = div.querySelector('input[type=checkbox]');
+        var textbox = div.querySelector('input[type=text]');
+        var select = div.querySelector('select');
         var slider = div.querySelector('input[type=range]');
         var numberBox = div.querySelector('input[type=number]');
         return {
             classList: div.classList,
-            slider: slider,
-            numberBox: numberBox
+            range: slider,
+            rangeText: numberBox,
+            select: select,
+            text: textbox,
+            bool: checkbox
         };
     }
-    function throttledSetParam(index, value) {
-        //sync slider / numberbox
-        var div = selectParamSlider(index);
-        var slider = div.slider;
-        var numberBox = div.numberBox;
-        if (slider && numberBox) {
-            if (div.classList.contains('toggle-number')) {
-                //numberbox is master
-                slider.value = numberBox.value;
-            }
-            else {
-                //slider is master
-                numberBox.value = slider.value;
+    function saveParamsLink() {
+        var a = document.querySelector('#params-link');
+        if (!a)
+            return;
+        a.hash = 'params=' + JSON.stringify(processed.paramValues);
+    }
+    function getHashParams() {
+        var paramValues;
+        if (document.location.hash) {
+            var hashParams = new QueryStringParams(document.location.hash.substring(1));
+            var paramString = hashParams['params'];
+            if (paramString) {
+                paramValues = JSON.parse(paramString);
             }
         }
-        resetDownload();
+        return paramValues;
+    }
+    window.onhashchange = function () {
+        var paramValues;
+        if (document.location.hash && document.location.hash.length > 1) {
+            paramValues = getHashParams();
+        }
+        else if (processed.kit) {
+            var fontLoader = new MakerJsPlayground.FontLoader(null, processed.kit.metaParameters, makerjs.kit.getParameterValues(processed.kit));
+            paramValues = fontLoader.getParamValuesWithFontSpec();
+        }
+        setParamValues(paramValues, true);
+    };
+    function setParamValues(paramValues, fit) {
+        if (paramValues && paramValues.length) {
+            for (var i = 0; i < paramValues.length; i++) {
+                setParamIndex(i, paramValues[i], false);
+            }
+            finalizeSetParam(fit);
+        }
+    }
+    function setParamIndex(index, value, fromUI) {
+        //sync slider / numberbox
+        var div = getParamUIControl(index);
+        if (fromUI) {
+            if (div.range && div.rangeText) {
+                div.range.value = value;
+                div.rangeText.value = value;
+            }
+        }
+        else {
+            if (div.range && div.rangeText) {
+                div.rangeText.value = value;
+                div.range.value = value;
+            }
+            else if (div.bool) {
+                div.bool.checked = !!value;
+            }
+            else if (div.text) {
+                div.text.value = value;
+            }
+            else if (div.select) {
+                var select = div.select;
+                for (var i = 0; i < select.options.length; i++) {
+                    var optionValue = select.options[i].getAttribute('value');
+                    if (optionValue == value) {
+                        select.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
         processed.paramValues[index] = value;
+    }
+    function throttledSetParam(index, value) {
+        setParamIndex(index, value, true);
+        finalizeSetParam(false);
+    }
+    function finalizeSetParam(fit) {
+        resetDownload();
+        saveParamsLink();
+        if (fit) {
+            MakerJsPlayground.viewScale = null;
+        }
         if (MakerJsPlayground.renderOnWorkerThread && Worker) {
             reConstructInWorker(setProcessedModel, constructOnMainThread);
         }
@@ -640,7 +829,7 @@ var MakerJsPlayground;
     MakerJsPlayground.svgStrokeWidth = 2;
     MakerJsPlayground.svgFontSize = 14;
     MakerJsPlayground.renderOnWorkerThread = true;
-    function runCodeFromEditor() {
+    function runCodeFromEditor(paramValues) {
         document.body.classList.add('wait');
         processed.kit = null;
         populateParams(null);
@@ -652,7 +841,7 @@ var MakerJsPlayground;
         document.body.appendChild(iframe);
         var scripts = ['require-iframe.js', '../external/bezier-js/bezier.js', '../external/opentype/opentype.js'];
         iframe.contentWindow.document.open();
-        iframe.contentWindow.document.write('<html><head>' + scripts.map(function (src) { return '<script src="' + src + '"></script>'; }).join() + '</head><body></body></html>');
+        iframe.contentWindow.document.write('<html><head>' + scripts.map(function (src) { return '<script src="' + src + '"></script>'; }).join() + '<script>var paramValues=' + JSON.stringify(paramValues) + ';</script></head><body></body></html>');
         iframe.contentWindow.document.close();
     }
     MakerJsPlayground.runCodeFromEditor = runCodeFromEditor;
@@ -683,27 +872,45 @@ var MakerJsPlayground;
         document.getElementById('notes').innerHTML = html;
     }
     function updateZoomScale() {
+        var unitScale = MakerJsPlayground.viewScale;
+        if (processed.model.units) {
+            //pixels to inch
+            unitScale /= pixelsPerInch;
+            //inch to units
+            unitScale *= makerjs.units.conversionScale(makerjs.unitType.Inch, processed.model.units);
+        }
         var z = document.getElementById('zoom-display');
-        z.innerText = '(' + (MakerJsPlayground.viewScale * (MakerJsPlayground.renderUnits ? 100 : 1)).toFixed(0) + '%)';
+        z.innerText = '[' + (unitScale * 100).toFixed(0) + '%]';
+        var g = document.getElementById('grid-unit');
+        if (checkShowGrid.checked) {
+            var gridScale = makerjs.round(getGridScale());
+            g.innerText = '[' + gridScale + ' ' + (processed.model.units || ('unit' + (gridScale < 10 ? '' : 's'))) + ']';
+        }
+        else {
+            g.innerText = '';
+        }
     }
     MakerJsPlayground.updateZoomScale = updateZoomScale;
-    function processResult(html, result, orderedDependencies) {
+    function processResult(value) {
+        var result = value.result;
         resetDownload();
-        processed.html = html;
+        processed.html = value.html || '';
         setProcessedModel(null);
         //see if output is either a Node module, or a MakerJs.IModel
         if (typeof result === 'function') {
             processed.kit = result;
             populateParams(processed.kit.metaParameters);
+            if (value.paramValues) {
+                setParamValues(value.paramValues, false);
+            }
             function enableKit() {
                 paramsDiv.removeAttribute('disabled');
             }
             function setKitOnMainThread() {
-                constructOnMainThread();
-                enableKit();
+                constructOnMainThread(enableKit);
             }
             if (MakerJsPlayground.renderOnWorkerThread && Worker) {
-                constructInWorker(MakerJsPlayground.codeMirrorEditor.getDoc().getValue(), orderedDependencies, function (model) {
+                constructInWorker(MakerJsPlayground.codeMirrorEditor.getDoc().getValue(), value.orderedDependencies, function (model) {
                     enableKit();
                     setProcessedModel(model);
                 }, setKitOnMainThread);
@@ -744,25 +951,25 @@ var MakerJsPlayground;
         if (milliSeconds === void 0) { milliSeconds = 150; }
         if (steps === void 0) { steps = 20; }
         clearInterval(animationTimeoutId);
-        var div = selectParamSlider(paramIndex);
+        var div = getParamUIControl(paramIndex);
         if (!div)
             return;
-        if (!div.slider) {
+        if (!div.range) {
             animate(paramIndex + 1);
             return;
         }
-        var max = parseFloat(div.slider.max);
-        var min = parseFloat(div.slider.min);
+        var max = parseFloat(div.range.max);
+        var min = parseFloat(div.range.min);
         do {
             var step = Math.floor((max - min) / steps);
             steps /= 2;
         } while (step === 0);
-        div.slider.value = min.toString();
+        div.range.value = min.toString();
         animationTimeoutId = setInterval(function () {
-            var currValue = parseFloat(div.slider.value);
+            var currValue = parseFloat(div.range.value);
             if (currValue < max) {
                 var newValue = currValue + step;
-                div.slider.value = newValue.toString();
+                div.range.value = newValue.toString();
                 throttledSetParam(paramIndex, newValue);
             }
             else {
@@ -771,20 +978,6 @@ var MakerJsPlayground;
         }, milliSeconds);
     }
     MakerJsPlayground.animate = animate;
-    function toggleSliderNumberBox(label, index) {
-        var id;
-        if (toggleClass('toggle-number', label.parentElement)) {
-            id = 'slider_' + index;
-            //re-render according to slider value since numberbox may be out of limits
-            var slider = document.getElementById(id);
-            slider.onchange(null);
-        }
-        else {
-            id = 'numberbox_' + index;
-        }
-        label.htmlFor = id;
-    }
-    MakerJsPlayground.toggleSliderNumberBox = toggleSliderNumberBox;
     function activateParam(input, onLongHold) {
         if (onLongHold === void 0) { onLongHold = false; }
         function activate() {
@@ -810,7 +1003,8 @@ var MakerJsPlayground;
     }
     MakerJsPlayground.deActivateParam = deActivateParam;
     function fitNatural() {
-        MakerJsPlayground.pointers.reset();
+        if (MakerJsPlayground.pointers)
+            MakerJsPlayground.pointers.reset();
         if (!processed.measurement)
             return;
         var size = getViewSize();
@@ -819,15 +1013,14 @@ var MakerJsPlayground;
         MakerJsPlayground.viewScale = 1;
         viewPanOffset = [0, 0];
         checkFitToScreen.checked = false;
-        MakerJsPlayground.renderUnits = processed.model.units || null;
         if (processed.model.units) {
-            //from pixels, to inch, then to units
-            var widthToInch = size[0] / pixelsPerInch;
-            var toUnits = makerjs.units.conversionScale(makerjs.unitType.Inch, processed.model.units) * widthToInch;
-            halfWidth = toUnits / 2;
+            //convert from units to Inch
+            MakerJsPlayground.viewScale = makerjs.units.conversionScale(processed.model.units, makerjs.unitType.Inch);
+            //from inch to pixel
+            MakerJsPlayground.viewScale *= pixelsPerInch;
         }
-        halfWidth -= modelNaturalSize[0] / 2 + processed.measurement.low[0];
-        viewOrigin = [halfWidth, processed.measurement.high[1]];
+        halfWidth -= (modelNaturalSize[0] / 2 + processed.measurement.low[0]) * MakerJsPlayground.viewScale;
+        viewOrigin = [halfWidth, processed.measurement.high[1] * MakerJsPlayground.viewScale];
         updateZoomScale();
     }
     MakerJsPlayground.fitNatural = fitNatural;
@@ -842,14 +1035,8 @@ var MakerJsPlayground;
         MakerJsPlayground.viewScale = 1;
         viewPanOffset = [0, 0];
         checkFitToScreen.checked = true;
-        MakerJsPlayground.renderUnits = null;
-        if (processed.model.units) {
-            //cast into inches, then to pixels
-            MakerJsPlayground.viewScale *= makerjs.units.conversionScale(processed.model.units, makerjs.unitType.Inch) * pixelsPerInch;
-        }
-        var modelPixelSize = makerjs.point.rounded(makerjs.point.scale(modelNaturalSize, MakerJsPlayground.viewScale), .1);
-        var scaleHeight = size[1] / modelPixelSize[1];
-        var scaleWidth = size[0] / modelPixelSize[0];
+        var scaleHeight = size[1] / modelNaturalSize[1];
+        var scaleWidth = size[0] / modelNaturalSize[0];
         MakerJsPlayground.viewScale *= Math.min(scaleWidth, scaleHeight);
         halfWidth -= (modelNaturalSize[0] / 2 + processed.measurement.low[0]) * MakerJsPlayground.viewScale;
         viewOrigin = [halfWidth, processed.measurement.high[1] * MakerJsPlayground.viewScale];
@@ -881,10 +1068,9 @@ var MakerJsPlayground;
     function render() {
         viewSvgContainer.innerHTML = '';
         var html = '';
-        var unitScale = MakerJsPlayground.renderUnits ? makerjs.units.conversionScale(MakerJsPlayground.renderUnits, makerjs.unitType.Inch) * pixelsPerInch : 1;
-        var strokeWidth = MakerJsPlayground.svgStrokeWidth / (browserIsMicrosoft() ? unitScale : 1);
+        var strokeWidth = MakerJsPlayground.svgStrokeWidth;
         if (processed.model) {
-            var fontSize = MakerJsPlayground.svgFontSize / unitScale;
+            var fontSize = MakerJsPlayground.svgFontSize;
             var renderOptions = {
                 origin: viewOrigin,
                 annotate: true,
@@ -902,11 +1088,10 @@ var MakerJsPlayground;
                     ROOT: processed.model
                 }
             };
-            if (MakerJsPlayground.renderUnits) {
-                renderModel.units = MakerJsPlayground.renderUnits;
-            }
             var size = getModelNaturalSize();
             var multiplier = 10;
+            panGrid();
+            zoomGrid();
             renderModel.paths = {
                 'crosshairs-vertical': new makerjs.paths.Line([0, size[1] * multiplier], [0, -size[1] * multiplier]),
                 'crosshairs-horizontal': new makerjs.paths.Line([size[0] * multiplier, 0], [-size[0] * multiplier, 0])
@@ -940,7 +1125,7 @@ var MakerJsPlayground;
                 message: 'Could not load script "' + url + '". Possibly a network error, or the file does not exist.',
                 name: 'Load module failure'
             };
-            processResult('', errorDetails);
+            processResult({ result: errorDetails });
         }, 5000);
         var x = new XMLHttpRequest();
         x.open('GET', url, true);
@@ -997,11 +1182,18 @@ var MakerJsPlayground;
         }
     }
     function downloadClick(a, format) {
+        //TODO: show options
+        //TODO: get options
         var request = {
             format: format,
             formatTitle: a.innerText,
-            model: processed.model
+            model: processed.model,
+            options: {}
         };
+        _downloadClick(request);
+    }
+    MakerJsPlayground.downloadClick = downloadClick;
+    function _downloadClick(request) {
         //initialize a worker - this will download scripts into the worker
         if (!exportWorker) {
             exportWorker = new Worker('worker/export-worker.js?' + new Date().valueOf());
@@ -1013,7 +1205,6 @@ var MakerJsPlayground;
         //tell the worker to process the job
         exportWorker.postMessage(request);
     }
-    MakerJsPlayground.downloadClick = downloadClick;
     function copyToClipboard() {
         preview.select();
         document.execCommand('copy');
@@ -1059,12 +1250,18 @@ var MakerJsPlayground;
         customizeMenu = document.getElementById('rendering-options-menu');
         view = document.getElementById('view');
         paramsDiv = document.getElementById('params');
+        measurementDiv = document.getElementById('measurement');
         progress = document.getElementById('download-progress');
         preview = document.getElementById('download-preview');
         checkFitToScreen = document.getElementById('check-fit-on-screen');
+        checkShowGrid = document.getElementById('check-show-origin');
         checkNotes = document.getElementById('check-notes');
         viewSvgContainer = document.getElementById('view-svg-container');
+        gridPattern = document.getElementById('gridPattern');
+        gridPatternFill = document.getElementById('gridPatternFill');
         margin = [viewSvgContainer.offsetLeft, viewSvgContainer.offsetTop];
+        gridPattern.setAttribute('x', margin[0].toString());
+        gridPattern.setAttribute('y', margin[1].toString());
         var pre = document.getElementById('init-javascript-code');
         MakerJsPlayground.codeMirrorOptions.value = pre.innerText;
         MakerJsPlayground.codeMirrorEditor = CodeMirror(function (elt) {
@@ -1088,15 +1285,16 @@ var MakerJsPlayground;
         else {
             var scriptname = MakerJsPlayground.querystringParams['script'];
             if (scriptname && !isHttp(scriptname)) {
-                if ((scriptname in makerjs.models) && scriptname !== 'Text') {
-                    var code = generateCodeFromKit(scriptname, makerjs.models[scriptname]);
+                var paramValues = getHashParams();
+                if (scriptname in makerjs.models) {
+                    var code = generateCodeFromKit(scriptname, makerjs.models[scriptname], paramValues);
                     MakerJsPlayground.codeMirrorEditor.getDoc().setValue(code);
-                    runCodeFromEditor();
+                    runCodeFromEditor(paramValues);
                 }
                 else {
                     downloadScript(filenameFromRequireId(scriptname), function (download) {
                         MakerJsPlayground.codeMirrorEditor.getDoc().setValue(download);
-                        runCodeFromEditor();
+                        runCodeFromEditor(paramValues);
                     });
                 }
             }

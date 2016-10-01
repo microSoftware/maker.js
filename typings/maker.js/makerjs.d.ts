@@ -20,6 +20,19 @@ declare namespace MakerJs {
      */
     var version: string;
     /**
+     * Enumeration of environment types.
+     */
+    var environmentTypes: {
+        BrowserUI: string;
+        NodeJs: string;
+        WebWorker: string;
+        Unknown: string;
+    };
+    /**
+     * Current execution environment type, should be one of environmentTypes.
+     */
+    var environment: string;
+    /**
      * String-based enumeration of unit types: imperial, metric or otherwise.
      * A model may specify the unit system it is using, if any. When importing a model, it may have different units.
      * Unit conversion function is makerjs.units.conversionScale().
@@ -841,7 +854,7 @@ declare namespace MakerJs.point {
      * @param rotationOrigin The center point of rotation.
      * @returns A new point.
      */
-    function rotate(pointToRotate: IPoint, angleInDegrees: number, rotationOrigin: IPoint): IPoint;
+    function rotate(pointToRotate: IPoint, angleInDegrees: number, rotationOrigin?: IPoint): IPoint;
     /**
      * Scale a point's coordinates.
      *
@@ -925,7 +938,7 @@ declare namespace MakerJs.path {
      * @param rotationOrigin The center point of rotation.
      * @returns The original path (for chaining).
      */
-    function rotate(pathToRotate: IPath, angleInDegrees: number, rotationOrigin: IPoint): IPath;
+    function rotate(pathToRotate: IPath, angleInDegrees: number, rotationOrigin?: IPoint): IPath;
     /**
      * Scale a path.
      *
@@ -1189,7 +1202,7 @@ declare namespace MakerJs.model {
      * @param rotationOrigin The center point of rotation.
      * @returns The original model (for chaining).
      */
-    function rotate(modelToRotate: IModel, angleInDegrees: number, rotationOrigin: IPoint): IModel;
+    function rotate(modelToRotate: IModel, angleInDegrees: number, rotationOrigin?: IPoint): IModel;
     /**
      * Scale a model.
      *

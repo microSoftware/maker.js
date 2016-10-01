@@ -98,6 +98,8 @@
 
     <script src="iexport.js"></script>
     <script src="pointer.js"></script>
+    <script src="../fonts/fonts.js"></script>
+    <script src="fontloader.js"></script>
     <script src="playground.js"></script>
     <script>
         //config
@@ -118,6 +120,25 @@
         </header>
 
         <section id="blueprint-canvas">
+
+            <svg id="grid">
+                <defs>
+                    <pattern id="pattern1" x="0" y="0" width=".1" height=".1">
+                        <line x1="0" y1="0" x2="0" y2="100%" class="grid-line-1"></line>
+                        <line x1="0" y1="0" x2="100%" y2="0" class="grid-line-1"></line>
+                    </pattern>
+                    <pattern id="pattern10" x="0" y="0" width="1" height="1">
+                        <line x1="0" y1="0" x2="0" y2="100%" class="grid-line-10"></line>
+                        <line x1="0" y1="0" x2="100%" y2="0" class="grid-line-10"></line>
+                    </pattern>
+                    <pattern id="gridPattern" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse" patternTransform="translate(0,0)">
+                        <rect id="gridPatternFill" fill="url(#pattern1)" width="100" height="100" x="0" y="0"></rect>
+                        <rect fill="url(#pattern10)" width="100%" height="100%" x="0" y="0"></rect>
+                    </pattern>
+                </defs>
+                <rect fill="url(#gridPattern)" width="100%" height="100%" x="0" y="0"></rect>
+            </svg>
+
             <div id="view-params">
                 <div id="view" touch-action="none" class="noselect">
                     <div id="view-svg-container"></div>
@@ -126,12 +147,11 @@
                 </div>
                 <div id="rendering-options-menu" class="noselect">
                     <div id="params"></div>
+                    <a id="params-link" href="#">save these customizations</a>
+                    <div id="measurement">measurement</div>
                     <div class="view-controls">
-                        <div>
-                            <hr />
-                        </div>
-                        <div><label><input id="check-fit-on-screen" type="checkbox" checked onclick="if (this.checked) { MakerJsPlayground.fitOnScreen(); } else { MakerJsPlayground.fitNatural(); } MakerJsPlayground.render();" /> fit on screen <span id="zoom-display"></span></label></div>
-                        <div><label><input id="check-show-origin" type="checkbox" checked onclick="MakerJsPlayground.toggleClass('collapse-origin')" /> show origin</label></div>
+                        <div><label><input id="check-fit-on-screen" type="checkbox" checked onclick="if (this.checked) { MakerJsPlayground.fitOnScreen(); } else { MakerJsPlayground.fitNatural(); } MakerJsPlayground.render();" /> fit on screen <span id="zoom-display" class="zoom-unit"></span></label></div>
+                        <div><label><input id="check-show-origin" type="checkbox" checked onclick="MakerJsPlayground.toggleClass('collapse-origin'); MakerJsPlayground.updateZoomScale();" /> show grid <span id="grid-unit" class="zoom-unit"></span></label></div>
                         <div><label><input id="check-annotate" type="checkbox" onclick="MakerJsPlayground.toggleClass('collapse-annotation')" /> show path names</label></div>
                         <div id="notes-toggle"><label><input id="check-notes" type="checkbox" checked onclick="MakerJsPlayground.toggleClass('collapse-notes')" /> show notes</label></div>
                     </div>
@@ -143,7 +163,7 @@
         <section id="download">
 
             <div id="download-select">
-                <h2>Choose a file format to download your customized drawing</h2>
+                <h2>Choose a file format to download your customized drawing <span class="unitless">(units will be millimeters)</span></h2>
 
                 <button href="#" onclick="MakerJsPlayground.downloadClick(this, MakerJsPlaygroundExport.ExportFormat.Dxf);">.dxf</button>
                 <button href="#" onclick="MakerJsPlayground.downloadClick(this, MakerJsPlaygroundExport.ExportFormat.Svg);">.svg</button>
@@ -219,6 +239,8 @@ this.notes = '# Welcome to the Maker.js playground \n You can edit the JavaScrip
             <h4>Credits:</h4>
 
             <ul>
+                <li>Bezier curve calculation by <a href="https://pomax.github.io/bezierjs/" target="_blank">Bezier.js</a></li>
+                <li>Font file parsing by <a href="http://opentype.js.org/" target="_blank">Opentype.js</a></li>
                 <li>JavaScript editor by <a href="https://codemirror.net/" target="_blank">CodeMirror</a></li>
                 <li>Markdown rendering by <a href="https://github.com/chjj/marked" target="_blank">Marked</a></li>
                 <li>3D generation by <a href="https://joostn.github.io/OpenJsCad/" target="_blank">OpenJSCAD</a></li>

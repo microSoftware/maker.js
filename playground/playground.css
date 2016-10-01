@@ -3,7 +3,7 @@
     margin: 0;
 }
 
-html, body, button, select {
+html, body, button, input, select {
     font-family: 'Segoe UI', sans-serif;
 }
 
@@ -53,7 +53,6 @@ header h1 {
 
 #blueprint-canvas {
     background-color: #3177C6;
-    background-image: url('blueprint.png');
     margin-bottom: 1em;
     overflow: hidden;
 }
@@ -129,10 +128,38 @@ header h1 {
     border-right-width: 0;
 }
 
-#rendering-options-menu .view-controls label {
+#rendering-options-menu #measurement {
+    border-top: 1px solid #ddd;
+    padding-top: .5em;
+}
+
+#params-link {
+    display: none;
+    font-weight: 300;
+    margin-bottom: 1em;
+}
+
+body.show-params-link #params-link {
+    display: block;
+}
+
+#rendering-options-menu .view-controls {
     letter-spacing: 1px;
     font-variant: small-caps;
     color: #777
+}
+
+#rendering-options-menu #measurement {
+    padding-bottom: .5em;
+    color: #333;
+}
+
+#rendering-options-menu .view-controls .zoom-unit {
+    float: right;
+}
+
+#rendering-options-menu .view-controls div {
+    clear: right;
 }
 
 .collapse-rendering-options #rendering-options-menu {
@@ -143,18 +170,18 @@ header h1 {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-.param-active #rendering-options-menu > div > div {
+.param-active #rendering-options-menu > div > div, .param-active #params-link {
     visibility: hidden;
 }
 
-.param-active #rendering-options-menu > div > div.active {
+.param-active #rendering-options-menu > div > div.active, .param-active #rendering-options-menu #measurement {
     visibility: visible;
     color: #0ff;
     text-shadow: 0 0 1em rgba(0,0,0,.5);
 }
 
 #params div {
-    margin-bottom: .5em;
+    margin-bottom: .6em;
 }
 
 #params select, input[type=text] {
@@ -162,31 +189,27 @@ header h1 {
 }
 
 #params input[type=range] {
-    width: 8em;
+    height: 10px;
     margin: 0;
     padding: 0;
     position: relative;
-    top: 6px;
+    width: 8em;
 }
 
 #params input[type=number] {
-    width: 8em;
-    top: 0;
-    display: inline-block;
-    margin-top: 6px;
-    margin-bottom: -2px;
+    border: none;
+    width: 5em;
+    margin-left: 1em;
 }
 
 #params form {
-    display: none;
-}
-
-#params .toggle-number form {
     display: inline;
 }
 
-#params .toggle-number input[type=range] {
-    display: none;
+#params label {
+    cursor: pointer;
+    display: block;
+    font-weight: 300;
 }
 
 #view {
@@ -236,12 +259,29 @@ svg#drawing .locked {
     stroke: #5B9DE3;
 }
 
-.collapse-origin #view #crosshairs-vertical, .collapse-origin #view #crosshairs-horizontal {
+.collapse-origin #view #crosshairs-vertical, .collapse-origin #view #crosshairs-horizontal, .collapse-origin #grid {
     display: none;
 }
 
 #crosshairs-horizontal_text, #crosshairs-vertical_text {
     display: none;
+}
+
+#grid {
+    height: 100%; 
+    overflow: visible;
+    position:absolute;
+    width: 100%; 
+}
+
+.grid-line-1 {
+    stroke: #5B9DE3;
+    opacity: 0.6;
+}
+
+.grid-line-10 {
+    stroke: #5B9DE3;
+    opacity: 0.8;
 }
 
 svg#pointers, #touch-shield {
@@ -278,7 +318,8 @@ svg#pointers line {
     color: #fdfdff;
     padding: 0 1em;
     margin: 0 1em .7em 1em;
-    background-color: rgba(0, 0, 0, .1);
+    background-color: rgba(37, 95, 168, .6);
+    position: relative;
 }
 
 #notes h1, #notes h2, #notes h3, #notes h4, #notes h5, #notes h6, #notes th {
@@ -343,6 +384,10 @@ svg#pointers line {
     display: none;
 }
 
+.has-units .unitless {
+    display: none;
+}
+
 #download h2 {
     font-weight: normal;
     font-size: smaller;
@@ -366,21 +411,6 @@ svg#pointers line {
     text-align: center;
     text-transform: uppercase;
     font-size: smaller;
-}
-
-#download button.text-tool {
-    float: right;
-    margin-bottom: 2em;
-    width: auto;
-    margin-right: 0;
-    margin-top: 0;
-    padding-left: 2em;
-    padding-right: 2em;
-    font-size: .65em;
-    background: transparent;
-    border-bottom-left-radius: 1em;
-    border-bottom-right-radius: 1em;
-    color: #aaa;
 }
 
 #download-progress {
@@ -642,7 +672,6 @@ body.full-screen {
 }
 
 .full-screen #blueprint-canvas {
-    background-image: none;
     background-color: inherit;
     border-left: 1px solid #aaa;
     border-right: 1px solid #aaa;
@@ -670,4 +699,12 @@ body.full-screen {
 
 .full-screen #notes h1, .full-screen #notes h2, .full-screen #notes h3, .full-screen #notes h4, .full-screen #notes h5, .full-screen #notes h6, .full-screen #notes th, .full-screen #notes td:first-child {
     color: #333;
+}
+
+.full-screen .grid-line-1 {
+    stroke: #ccc;
+}
+
+.full-screen .grid-line-10 {
+    stroke: #ccc;
 }

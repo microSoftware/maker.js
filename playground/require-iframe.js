@@ -28,7 +28,7 @@ var MakerJsRequireIframe;
             write: devNull
         };
         var Fn = new Function('require', 'module', 'document', 'console', 'alert', 'playgroundRender', javaScript);
-        var result = new Fn(window.collectRequire, window.module, mockDocument, parent.console, devNull, devNull); //call function with the "new" keyword so the "this" keyword is an instance
+        var result = new Fn(window.require, window.module, mockDocument, parent.console, devNull, devNull); //call function with the "new" keyword so the "this" keyword is an instance
         return window.module.exports || result;
     }
     function runCodeGlobal(javaScript) {
@@ -65,7 +65,7 @@ var MakerJsRequireIframe;
                 name: 'Load module failure'
             };
             //send error results back to parent window
-            parent.MakerJsPlayground.processResult('', errorDetails);
+            parent.MakerJsPlayground.processResult({ result: errorDetails });
         }, 5000);
         script.onload = function () {
             clearTimeout(timeout);
@@ -98,6 +98,7 @@ var MakerJsRequireIframe;
     var loads = {};
     var reloads = [];
     var previousId = null;
+    var collection = true;
     var counter = new Counter();
     var htmls = [];
     var logs = [];
@@ -137,11 +138,11 @@ var MakerJsRequireIframe;
             name: errorName
         };
         //send error results back to parent window
-        parent.MakerJsPlayground.processResult('', errorDetails);
+        parent.MakerJsPlayground.processResult({ result: errorDetails });
         errorReported = true;
     };
-    window.collectRequire = function (id) {
-        if (id === 'makerjs') {
+    window.require = function (id) {
+        if (collection && id === 'makerjs') {
             return mockMakerJs;
         }
         if (id in required) {
@@ -156,10 +157,6 @@ var MakerJsRequireIframe;
         previousId = id;
         //return an object that may be treated like a class
         return Temp;
-    };
-    window.require = function (id) {
-        //return cached required file
-        return required[id];
     };
     window.module = { exports: null };
     window.onload = function () {
@@ -197,19 +194,25 @@ var MakerJsRequireIframe;
                 return;
             //yield thread for the script tag to execute
             setTimeout(function () {
-                //restore properties from the "this" keyword
-                var model = {};
-                var props = ['layer', 'models', 'notes', 'origin', 'paths', 'type', 'units'];
-                var hasProps = false;
-                for (var i = 0; i < props.length; i++) {
-                    var prop = props[i];
-                    if (prop in window) {
-                        model[prop] = window[prop];
-                        hasProps = true;
-                    }
+                var model;
+                if (captureExportedModel) {
+                    model = captureExportedModel;
                 }
-                if (!hasProps) {
-                    model = null;
+                else {
+                    //restore properties from the "this" keyword
+                    model = {};
+                    var props = ['layer', 'models', 'notes', 'origin', 'paths', 'type', 'units'];
+                    var hasProps = false;
+                    for (var i = 0; i < props.length; i++) {
+                        var prop = props[i];
+                        if (prop in window) {
+                            model[prop] = window[prop];
+                            hasProps = true;
+                        }
+                    }
+                    if (!hasProps) {
+                        model = null;
+                    }
                 }
                 var orderedDependencies = [];
                 var scripts = head.getElementsByTagName('script');
@@ -219,7 +222,7 @@ var MakerJsRequireIframe;
                     }
                 }
                 //send results back to parent window
-                parent.MakerJsPlayground.processResult(getHtml(), window.module.exports || model || captureExportedModel, orderedDependencies);
+                parent.MakerJsPlayground.processResult({ html: getHtml(), result: window.module.exports || model, orderedDependencies: orderedDependencies, paramValues: window.paramValues });
             }, 0);
         }
         ;
@@ -244,13 +247,14 @@ var MakerJsRequireIframe;
             //save the error
             error = e;
         }
+        collection = false;
         //if there were no requirements, fire the complete function manually
         if (counter.required == 0) {
             counter.complete();
         }
     };
     window.playgroundRender = function (result) {
-        parent.MakerJsPlayground.processResult(getHtml(), result);
+        parent.MakerJsPlayground.processResult({ html: getHtml(), result: result, paramValues: window.paramValues });
     };
     function devNull() { }
     var mockMakerJs = {};

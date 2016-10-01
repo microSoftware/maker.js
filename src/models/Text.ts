@@ -72,10 +72,12 @@
 
                 charModel.origin = [x, 0];
 
-                if (centerCharacterOrigin) {
+                if (centerCharacterOrigin && (charModel.paths || charModel.models)) {
                     var m = measure.modelExtents(charModel);
-                    var w = m.high[0] - m.low[0];
-                    model.originate(charModel, [x + w / 2, 0]);
+                    if (m) {
+                        var w = m.high[0] - m.low[0];
+                        model.originate(charModel, [m.low[0] + w / 2, 0]);
+                    }
                 }
 
                 if (combine && charIndex > 0) {
@@ -95,5 +97,13 @@
         }
 
     }
+
+    (<IKit>Text).metaParameters = [
+        { title: "font", type: "font", value: '*' },
+        { title: "text", type: "text", value: 'Hello' },
+        { title: "font size", type: "range", min: 10, max: 200, value: 72 },
+        { title: "combine", type: "bool", value: false },
+        { title: "center character origin", type: "bool", value: false }
+    ];
 
 }

@@ -20,8 +20,8 @@ function load(id, src) {
     module[id] = module.exports;
 }
 //add the makerjs module
-importScripts('../../target/js/browser.maker.js', '../../external/bezier-js/bezier.js', '../../external/opentype/opentype.js');
-var makerjs = require('makerjs');
+importScripts('../../fonts/fonts.js', '../fontloader.js', '../../target/js/browser.maker.js', '../../external/bezier-js/bezier.js', '../../external/opentype/opentype.js');
+var makerjs = self.require('makerjs');
 module['makerjs'] = makerjs;
 module['./../target/js/node.maker.js'] = makerjs;
 function runCodeIsolated(javaScript) {
@@ -88,9 +88,10 @@ var activeRequestId;
 onmessage = function (ev) {
     var request = ev.data;
     if (request.orderedDependencies) {
-        for (var id in request.orderedDependencies) {
-            load(id, request.orderedDependencies[id]);
-        }
+        self.require = module.require;
+        request.orderedDependencies.forEach(function (id) {
+            load(id, request.dependencyUrls[id]);
+        });
     }
     if (requireError) {
         postError(request.requestId, requireError);
@@ -114,18 +115,25 @@ onmessage = function (ev) {
         activeRequestId = request.requestId;
         htmls.length = baseHtmlLength;
         logs.length = baseLogLength;
-        try {
-            var model = makerjs.kit.construct(kit, request.paramValues);
-            var response = {
-                requestId: request.requestId,
-                model: model,
-                html: getHtml()
-            };
-            postMessage(response);
-        }
-        catch (e) {
-            postError(request.requestId, 'runtime error');
-        }
+        var fontLoader = new MakerJsPlayground.FontLoader(window['opentype'], kit.metaParameters, request.paramValues);
+        fontLoader.successCb = function (realValues) {
+            try {
+                var model = makerjs.kit.construct(kit, realValues);
+                var response = {
+                    requestId: request.requestId,
+                    model: model,
+                    html: getHtml()
+                };
+                postMessage(response);
+            }
+            catch (e) {
+                postError(request.requestId, 'runtime error');
+            }
+        };
+        fontLoader.failureCb = function (id) {
+            postError(request.requestId, 'error loading font' + fonts[id].path);
+        };
+        fontLoader.load();
     }
 };
 //# sourceMappingURL=render-worker.js.map
