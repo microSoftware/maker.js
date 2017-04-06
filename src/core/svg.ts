@@ -363,9 +363,9 @@ namespace MakerJs.exporter {
             origin: null,
             scale: 1,
             stroke: "#000",
-            strokeWidth: '0.25mm',   //a somewhat average kerf of a laser cutter
-            fill: "none",
-            fontSize: '9pt',
+            strokeWidth: '0',
+            fill: "#000",
+            fontSize: '40',
             useSvgPathOnly: true,
             viewBox: true
         };
