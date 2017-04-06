@@ -2669,6 +2669,6 @@ declare namespace MakerJs.models {
 declare namespace MakerJs.models {
     class Text implements IModel {
         models: IModelMap;
-        constructor(font: opentype.Font, text: string, fontSize: number, combine?: boolean, centerCharacterOrigin?: boolean, bezierAccuracy?: number);
+        constructor(font: opentype.Font, text: string, fontSize: number, combine?: boolean, centerCharacterOrigin?: boolean, bezierAccuracy?: number, opentypeOptions?: opentype.RenderOptions);
     }
 }

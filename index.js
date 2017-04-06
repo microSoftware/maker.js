@@ -5946,9 +5946,9 @@ var MakerJs;
                 origin: null,
                 scale: 1,
                 stroke: "#000",
-                strokeWidth: '0.25mm',
-                fill: "none",
-                fontSize: '9pt',
+                strokeWidth: '0',
+                fill: "#000",
+                fontSize: '40',
                 useSvgPathOnly: true,
                 viewBox: true
             };
@@ -8015,7 +8015,7 @@ var MakerJs;
     var models;
     (function (models) {
         var Text = (function () {
-            function Text(font, text, fontSize, combine, centerCharacterOrigin, bezierAccuracy) {
+            function Text(font, text, fontSize, combine, centerCharacterOrigin, bezierAccuracy, opentypeOptions) {
                 if (combine === void 0) { combine = false; }
                 if (centerCharacterOrigin === void 0) { centerCharacterOrigin = false; }
                 var _this = this;
@@ -8084,7 +8084,7 @@ var MakerJs;
                     _this.models[charIndex] = charModel;
                     charIndex++;
                 };
-                font.forEachGlyph(text, 0, 0, fontSize, null, cb);
+                font.forEachGlyph(text, 0, 0, fontSize, opentypeOptions, cb);
             }
             return Text;
         }());
