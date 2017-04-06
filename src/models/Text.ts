@@ -4,7 +4,7 @@
 
         public models: IModelMap = {};
 
-        constructor(font: opentype.Font, text: string, fontSize: number, combine = false, centerCharacterOrigin = false, bezierAccuracy?: number, opentypeOptions?:opentype.RenderOptions) {
+        constructor(font: opentype.Font, text: string, fontSize: number, combine = true, centerCharacterOrigin = false, bezierAccuracy?: number, opentypeOptions?:opentype.RenderOptions) {
 
             var charIndex = 0;
             var combineOptions: ICombineOptions = {};
