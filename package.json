@@ -109,7 +109,7 @@
     "@types/openjscad": "0.0.27",
     "@types/opentype.js": "0.0.0",
     "@types/pdfkit": "^0.7.34",
-    "bezier-js": "^2.1.0",
+    "bezier-js": "^2.2.3",
     "clone": "^1.0.2",
     "openjscad-csg": "^1.0.3"
   }
