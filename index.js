@@ -5910,6 +5910,9 @@ var MakerJs;
         function toSVG(itemToExport, options) {
             function append(value, layer, forcePush) {
                 if (forcePush === void 0) { forcePush = false; }
+                if (forcePush === void 0) {
+                    forcePush = false;
+                }
                 if (!forcePush && typeof layer == "string" && layer.length > 0) {
                     if (!(layer in layers)) {
                         layers[layer] = [];
@@ -5917,7 +5920,13 @@ var MakerJs;
                     layers[layer].push(value);
                 }
                 else {
-                    elements.push(value);
+                    if (layer != undefined) {
+                        var group = createGroup(value, options[layer]);
+                        elements.push(group);
+                    }
+                    else {
+                        elements.push(value);
+                    }
                 }
             }
             function createElement(tagname, attrs, layer, innerText, forcePush) {
@@ -5929,6 +5938,15 @@ var MakerJs;
                     tag.innerText = innerText;
                 }
                 append(tag.toString(), layer, forcePush);
+            }
+            function createGroup(value, options) {
+                var optionString = "";
+                for (var attr in options) {
+                    var valueOption = options[attr];
+                    optionString += attr + '="' + valueOption + '" ';
+                }
+                var group = "<g " + optionString + ">" + value + "</g>";
+                return group;
             }
             function fixPoint(pointToFix) {
                 //in DXF Y increases upward. in SVG, Y increases downward
