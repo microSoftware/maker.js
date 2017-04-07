@@ -462,6 +462,11 @@ namespace MakerJs.exporter {
                 'xmlns':"http://www.w3.org/2000/svg",
                 'xmlns:xlink':"http://www.w3.org/1999/xlink"
             };
+
+            //add a background on the root svg
+            if(options['background'] != undefined || options['background'] != 'transparent'){
+                svgAttrs['style'] = "background:"+options['background'];
+            }
         }
 
         var svgTag = new XmlTag('svg', <IXmlTagAttrs>extendObject(svgAttrs || {}, opts.svgAttrs));
