@@ -6198,9 +6198,12 @@ var MakerJs;
                 var viewBox = [0, 0, width, height];
                 var unit = useSvgUnit ? useSvgUnit.svgUnitType : '';
                 svgAttrs = {
-                    width: width + unit,
-                    height: height + unit,
-                    viewBox: viewBox.join(' ')
+                    'width': width + unit,
+                    'height': height + unit,
+                    'viewBox': viewBox.join(' '),
+                    'version': 1.1,
+                    'xmlns': "http://www.w3.org/2000/svg",
+                    'xmlns:xlink': "http://www.w3.org/1999/xlink"
                 };
             }
             var svgTag = new exporter.XmlTag('svg', MakerJs.extendObject(svgAttrs || {}, opts.svgAttrs));
@@ -8211,7 +8214,7 @@ var MakerJs;
     (function (models) {
         var Text = (function () {
             function Text(font, text, fontSize, combine, centerCharacterOrigin, bezierAccuracy, opentypeOptions) {
-                if (combine === void 0) { combine = false; }
+                if (combine === void 0) { combine = true; }
                 if (centerCharacterOrigin === void 0) { centerCharacterOrigin = false; }
                 var _this = this;
                 this.models = {};

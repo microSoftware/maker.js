@@ -436,9 +436,12 @@ namespace MakerJs.exporter {
             var unit = useSvgUnit ? useSvgUnit.svgUnitType : '';
 
             svgAttrs = {
-                width: width + unit,
-                height: height + unit,
-                viewBox: viewBox.join(' ')
+                'width': width + unit,
+                'height': height + unit,
+                'viewBox': viewBox.join(' '),
+                'version':1.1,
+                'xmlns':"http://www.w3.org/2000/svg",
+                'xmlns:xlink':"http://www.w3.org/1999/xlink"
             };
         }
 
